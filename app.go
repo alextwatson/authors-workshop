@@ -1,0 +1,237 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+
+	"github.com/wailsapp/wails/v2/pkg/runtime"
+)
+
+// App is the Wails-bound backend. All methods take the project path explicitly
+// so the frontend remains the single source of truth for which project is open.
+type App struct {
+	ctx context.Context
+}
+
+func NewApp() *App {
+	return &App{}
+}
+
+func (a *App) startup(ctx context.Context) {
+	a.ctx = ctx
+}
+
+// CreateProject asks the user where to create a new project, then scaffolds
+// the full folder structure there. Returns nil (no error) if the user cancels.
+func (a *App) CreateProject(name string) (*Project, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, fmt.Errorf("project name cannot be empty")
+	}
+	parent, err := runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
+		Title:                "Choose where to create your project",
+		CanCreateDirectories: true,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if parent == "" {
+		return nil, nil
+	}
+	dir := filepath.Join(parent, slugify(name))
+	if _, err := os.Stat(dir); err == nil {
+		return nil, fmt.Errorf("a folder named %q already exists there", filepath.Base(dir))
+	}
+	now := nowStamp()
+	meta := ProjectMeta{
+		Name:          name,
+		WordCountGoal: 80000,
+		DailyWordGoal: 500,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+	}
+	if err := scaffoldProject(dir, meta); err != nil {
+		return nil, fmt.Errorf("could not create project: %w", err)
+	}
+	return &Project{Path: dir, Meta: meta}, nil
+}
+
+// OpenProject asks the user to pick an existing project folder.
+// Returns nil (no error) if the user cancels.
+func (a *App) OpenProject() (*Project, error) {
+	dir, err := runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Open a project folder",
+	})
+	if err != nil {
+		return nil, err
+	}
+	if dir == "" {
+		return nil, nil
+	}
+	return a.LoadProject(dir)
+}
+
+// LoadProject reads a project from a known path (e.g. a recent-projects list).
+func (a *App) LoadProject(projectPath string) (*Project, error) {
+	meta, err := readProjectMeta(projectPath)
+	if err != nil {
+		return nil, err
+	}
+	return &Project{Path: projectPath, Meta: meta}, nil
+}
+
+// SaveProjectMeta writes project.json, stamping UpdatedAt. Returns the saved meta.
+func (a *App) SaveProjectMeta(projectPath string, meta ProjectMeta) (*ProjectMeta, error) {
+	meta.UpdatedAt = nowStamp()
+	if err := writeJSON(filepath.Join(projectPath, projectFile), meta); err != nil {
+		return nil, fmt.Errorf("could not save project: %w", err)
+	}
+	return &meta, nil
+}
+
+// --- Manuscript ---
+
+func (a *App) ListChapters(projectPath string) ([]ChapterInfo, error) {
+	dir := filepath.Join(projectPath, manuscriptDir)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []ChapterInfo{}, nil
+		}
+		return nil, err
+	}
+	chapters := []ChapterInfo{}
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(dir, entry.Name()))
+		if err != nil {
+			return nil, err
+		}
+		content := string(data)
+		chapters = append(chapters, ChapterInfo{
+			Filename:  entry.Name(),
+			Title:     chapterTitle(content, entry.Name()),
+			WordCount: countWords(content),
+		})
+	}
+	sort.Slice(chapters, func(i, j int) bool { return chapters[i].Filename < chapters[j].Filename })
+	return chapters, nil
+}
+
+func (a *App) ReadChapter(projectPath, filename string) (string, error) {
+	name, err := safeName(filename)
+	if err != nil {
+		return "", err
+	}
+	data, err := os.ReadFile(filepath.Join(projectPath, manuscriptDir, name))
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+func (a *App) WriteChapter(projectPath, filename, content string) error {
+	name, err := safeName(filename)
+	if err != nil {
+		return err
+	}
+	return writeFileAtomic(filepath.Join(projectPath, manuscriptDir, name), []byte(content))
+}
+
+// --- Outline ---
+
+func (a *App) ReadOutline(projectPath string) (string, error) {
+	data, err := os.ReadFile(filepath.Join(projectPath, outlineFile))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return defaultOutline, nil
+		}
+		return "", err
+	}
+	return string(data), nil
+}
+
+func (a *App) WriteOutline(projectPath, content string) error {
+	return writeFileAtomic(filepath.Join(projectPath, outlineFile), []byte(content))
+}
+
+// --- Characters ---
+
+func (a *App) ListCharacters(projectPath string) ([]string, error) {
+	entries, err := os.ReadDir(filepath.Join(projectPath, charactersDir))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []string{}, nil
+		}
+		return nil, err
+	}
+	names := []string{}
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".json") {
+			names = append(names, entry.Name())
+		}
+	}
+	sort.Strings(names)
+	return names, nil
+}
+
+func (a *App) ReadCharacter(projectPath, filename string) (string, error) {
+	name, err := safeName(filename)
+	if err != nil {
+		return "", err
+	}
+	data, err := os.ReadFile(filepath.Join(projectPath, charactersDir, name))
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+func (a *App) WriteCharacter(projectPath, filename, content string) error {
+	name, err := safeName(filename)
+	if err != nil {
+		return err
+	}
+	return writeFileAtomic(filepath.Join(projectPath, charactersDir, name), []byte(content))
+}
+
+// --- World building ---
+
+func worldFile(filename string) (string, error) {
+	if filename != "locations.json" && filename != "lore.json" {
+		return "", fmt.Errorf("unknown worldbuilding file: %q", filename)
+	}
+	return filename, nil
+}
+
+func (a *App) ReadWorldFile(projectPath, filename string) (string, error) {
+	name, err := worldFile(filename)
+	if err != nil {
+		return "", err
+	}
+	data, err := os.ReadFile(filepath.Join(projectPath, worldDir, name))
+	if err != nil {
+		if os.IsNotExist(err) {
+			if name == "locations.json" {
+				return defaultLocation, nil
+			}
+			return defaultLore, nil
+		}
+		return "", err
+	}
+	return string(data), nil
+}
+
+func (a *App) WriteWorldFile(projectPath, filename, content string) error {
+	name, err := worldFile(filename)
+	if err != nil {
+		return err
+	}
+	return writeFileAtomic(filepath.Join(projectPath, worldDir, name), []byte(content))
+}
