@@ -113,11 +113,14 @@ func (a *App) ListChapters(projectPath string) ([]ChapterInfo, error) {
 		if err != nil {
 			return nil, err
 		}
-		content := string(data)
+		title, body := splitChapter(string(data))
+		if title == "" {
+			title = strings.TrimSuffix(entry.Name(), ".md")
+		}
 		chapters = append(chapters, ChapterInfo{
 			Filename:  entry.Name(),
-			Title:     chapterTitle(content, entry.Name()),
-			WordCount: countWords(content),
+			Title:     title,
+			WordCount: countWords(body),
 		})
 	}
 	sort.Slice(chapters, func(i, j int) bool { return chapters[i].Filename < chapters[j].Filename })

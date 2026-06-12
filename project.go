@@ -127,14 +127,23 @@ func scaffoldProject(dir string, meta ProjectMeta) error {
 	return nil
 }
 
-func chapterTitle(content, filename string) string {
-	for _, line := range strings.Split(content, "\n") {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "#") {
-			return strings.TrimSpace(strings.TrimLeft(line, "# "))
+// splitChapter separates a chapter file into its title (the first # heading)
+// and body, so the title can be edited and counted separately from the prose.
+func splitChapter(content string) (title, body string) {
+	lines := strings.Split(content, "\n")
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
 		}
+		if strings.HasPrefix(trimmed, "#") {
+			title = strings.TrimSpace(strings.TrimLeft(trimmed, "# "))
+			body = strings.TrimLeft(strings.Join(lines[i+1:], "\n"), "\n")
+			return title, body
+		}
+		break
 	}
-	return strings.TrimSuffix(filename, ".md")
+	return "", content
 }
 
 func countWords(content string) int {

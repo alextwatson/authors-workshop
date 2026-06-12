@@ -28,14 +28,19 @@ export default function App() {
                 onCloseProject={() => setProject(null)}
             />
             <main className="main">
-                {section === "manuscript" && <ManuscriptView project={project} />}
-                {section === "outline" && <OutlineView project={project} />}
-                {section === "characters" && <CharactersView project={project} />}
-                {section === "worldbuilding" && <WorldBuildingView project={project} />}
-                {section === "settings" && (
-                    <ProjectSettingsView project={project} onMetaSaved={(meta) => {
-                        setProject(main.Project.createFrom({ ...project, meta }));
-                    }} />
+                {section === "manuscript" ? (
+                    <ManuscriptView project={project} />
+                ) : (
+                    <div className="view">
+                        {section === "outline" && <OutlineView project={project} />}
+                        {section === "characters" && <CharactersView project={project} />}
+                        {section === "worldbuilding" && <WorldBuildingView project={project} />}
+                        {section === "settings" && (
+                            <ProjectSettingsView project={project} onMetaSaved={(meta) => {
+                                setProject(main.Project.createFrom({ ...project, meta }));
+                            }} />
+                        )}
+                    </div>
                 )}
             </main>
         </div>

@@ -1,13 +1,13 @@
 :root {
   --bg: #111113;
   --bg-raised: #18181b;
-  --bg-hover: #202024;
-  --border: #2a2a30;
+  --bg-hover: #293121;
+  --border: #293121;
   --text: #d8d5ce;
   --text-dim: #8d8a82;
   --text-faint: #5c5a54;
-  --accent: #c9a86a;
-  --accent-dim: #8f7a51;
+  --accent: #b37b22;
+  --accent-dim: #5e6342;
   --danger: #c97a6a;
 
   --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
@@ -75,12 +75,12 @@ button:hover {
 button.primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #1a1610;
+  color: #16120a;
   font-weight: 600;
 }
 
 button.primary:hover {
-  background: #d6b87c;
+  background: #c68f33;
 }
 
 /* --- Startup screen --- */
@@ -199,7 +199,13 @@ button.primary:hover {
 .main {
   flex: 1;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.view {
   padding: 48px 56px;
+  flex: 1;
 }
 
 .main h2 {
@@ -244,6 +250,126 @@ button.primary:hover {
 .file-list .meta {
   color: var(--text-faint);
   font-size: 12px;
+}
+
+/* --- Manuscript editor --- */
+
+.manuscript {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.chapter-list {
+  width: 230px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  padding: 16px 10px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.chapter-list button {
+  background: none;
+  border: none;
+  border-radius: 6px;
+  text-align: left;
+  padding: 8px 12px;
+  color: var(--text-dim);
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.chapter-list button:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.chapter-list button.active {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.chapter-list .chapter-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chapter-list .chapter-words {
+  font-size: 11px;
+  color: var(--text-faint);
+  flex-shrink: 0;
+}
+
+.chapter-list .new-chapter {
+  margin-top: 8px;
+  color: var(--accent-dim);
+  justify-content: flex-start;
+}
+
+.editor-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.editor-title {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 48px 40px 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  font-family: var(--font-serif);
+  font-size: 26px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.editor-title:focus {
+  border: none;
+}
+
+.editor-title::placeholder {
+  color: var(--text-faint);
+}
+
+.editor {
+  flex: 1;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 20px 40px 32px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  resize: none;
+  font-family: var(--font-serif);
+  font-size: 17px;
+  line-height: 1.8;
+  color: var(--text);
+}
+
+.editor:focus {
+  border: none;
+}
+
+.editor-status {
+  display: flex;
+  justify-content: space-between;
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 8px 40px 16px;
+  font-size: 12px;
+  color: var(--text-faint);
 }
 
 /* --- Settings form --- */
