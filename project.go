@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 )
@@ -37,10 +38,11 @@ type ChapterInfo struct {
 const (
 	projectFile     = "project.json"
 	manuscriptDir   = "manuscript"
+	scenesSubdir    = "scenes"
 	charactersDir   = "characters"
 	worldDir        = "worldbuilding"
 	outlineFile     = "outline.json"
-	defaultOutline  = "{\n  \"chapters\": []\n}\n"
+	defaultOutline  = "{\n  \"version\": 1,\n  \"nodes\": []\n}\n"
 	defaultLocation = "{\n  \"locations\": []\n}\n"
 	defaultLore     = "{\n  \"entries\": []\n}\n"
 )
@@ -148,6 +150,43 @@ func splitChapter(content string) (title, body string) {
 
 func countWords(content string) int {
 	return len(strings.Fields(content))
+}
+
+// manuscriptOrder is the content of manuscript/order.json — the user's
+// chosen ordering for chapters and scenes. Files not listed sort after
+// the listed ones, alphabetically.
+type manuscriptOrder struct {
+	Chapters []string `json:"chapters"`
+	Scenes   []string `json:"scenes"`
+}
+
+const orderFile = "order.json"
+
+func readManuscriptOrder(projectPath string) manuscriptOrder {
+	var o manuscriptOrder
+	data, err := os.ReadFile(filepath.Join(projectPath, manuscriptDir, orderFile))
+	if err == nil {
+		json.Unmarshal(data, &o)
+	}
+	return o
+}
+
+func sortDocsByOrder(docs []ChapterInfo, order []string) {
+	pos := make(map[string]int, len(order))
+	for i, f := range order {
+		pos[f] = i
+	}
+	sort.SliceStable(docs, func(i, j int) bool {
+		pi, iOK := pos[docs[i].Filename]
+		pj, jOK := pos[docs[j].Filename]
+		if iOK && jOK {
+			return pi < pj
+		}
+		if iOK != jOK {
+			return iOK
+		}
+		return docs[i].Filename < docs[j].Filename
+	})
 }
 
 // safeName guards against path traversal in filenames coming from the frontend.

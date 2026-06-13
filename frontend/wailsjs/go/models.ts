@@ -72,6 +72,27 @@ export namespace main {
 		    return a;
 		}
 	}
+	
+	export class TrashItem {
+	    id: string;
+	    kind: string;
+	    filename: string;
+	    title: string;
+	    projectPath: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new TrashItem(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.kind = source["kind"];
+	        this.filename = source["filename"];
+	        this.title = source["title"];
+	        this.projectPath = source["projectPath"];
+	    }
+	}
 
 }
 

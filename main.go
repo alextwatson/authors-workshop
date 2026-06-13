@@ -42,9 +42,10 @@ func main() {
 		BackgroundColour: &options.RGBA{R: 17, G: 17, B: 19, A: 1},
 		// Without a Mac options block, Wails leaves `zoomable` false and
 		// disables the green traffic-light button entirely.
-		Mac:  &mac.Options{},
-		Menu: appMenu,
-		OnStartup:        app.startup,
+		Mac:        &mac.Options{},
+		Menu:       appMenu,
+		OnStartup:  app.startup,
+		OnShutdown: app.shutdown,
 		Bind: []interface{}{
 			app,
 		},

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -15,6 +16,11 @@ import (
 // so the frontend remains the single source of truth for which project is open.
 type App struct {
 	ctx context.Context
+
+	trashMu  sync.Mutex
+	trashDir string
+	trash    []TrashItem
+	trashSeq int
 }
 
 func NewApp() *App {
@@ -95,8 +101,7 @@ func (a *App) SaveProjectMeta(projectPath string, meta ProjectMeta) (*ProjectMet
 
 // --- Manuscript ---
 
-func (a *App) ListChapters(projectPath string) ([]ChapterInfo, error) {
-	dir := filepath.Join(projectPath, manuscriptDir)
+func listDocs(dir string) ([]ChapterInfo, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -127,6 +132,26 @@ func (a *App) ListChapters(projectPath string) ([]ChapterInfo, error) {
 	return chapters, nil
 }
 
+func (a *App) ListChapters(projectPath string) ([]ChapterInfo, error) {
+	docs, err := listDocs(filepath.Join(projectPath, manuscriptDir))
+	if err != nil {
+		return nil, err
+	}
+	sortDocsByOrder(docs, readManuscriptOrder(projectPath).Chapters)
+	return docs, nil
+}
+
+// SetManuscriptOrder persists the user's drag-reordering of chapters or scenes.
+func (a *App) SetManuscriptOrder(projectPath, kind string, files []string) error {
+	o := readManuscriptOrder(projectPath)
+	if kind == "scene" {
+		o.Scenes = files
+	} else {
+		o.Chapters = files
+	}
+	return writeJSON(filepath.Join(projectPath, manuscriptDir, orderFile), o)
+}
+
 func (a *App) ReadChapter(projectPath, filename string) (string, error) {
 	name, err := safeName(filename)
 	if err != nil {
@@ -145,6 +170,57 @@ func (a *App) WriteChapter(projectPath, filename, content string) error {
 		return err
 	}
 	return writeFileAtomic(filepath.Join(projectPath, manuscriptDir, name), []byte(content))
+}
+
+// --- Scenes (manuscript/scenes/) ---
+
+func (a *App) ListScenes(projectPath string) ([]ChapterInfo, error) {
+	docs, err := listDocs(filepath.Join(projectPath, manuscriptDir, scenesSubdir))
+	if err != nil {
+		return nil, err
+	}
+	sortDocsByOrder(docs, readManuscriptOrder(projectPath).Scenes)
+	return docs, nil
+}
+
+func (a *App) ReadScene(projectPath, filename string) (string, error) {
+	name, err := safeName(filename)
+	if err != nil {
+		return "", err
+	}
+	data, err := os.ReadFile(filepath.Join(projectPath, manuscriptDir, scenesSubdir, name))
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+func (a *App) WriteScene(projectPath, filename, content string) error {
+	name, err := safeName(filename)
+	if err != nil {
+		return err
+	}
+	dir := filepath.Join(projectPath, manuscriptDir, scenesSubdir)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	return writeFileAtomic(filepath.Join(dir, name), []byte(content))
+}
+
+// PromoteSceneToChapter moves a scene file up into the chapters folder.
+// Returns the filename it ended up with (renamed only on collision).
+func (a *App) PromoteSceneToChapter(projectPath, filename string) (string, error) {
+	name, err := safeName(filename)
+	if err != nil {
+		return "", err
+	}
+	src := filepath.Join(projectPath, manuscriptDir, scenesSubdir, name)
+	destDir := filepath.Join(projectPath, manuscriptDir)
+	newName := availableName(destDir, name)
+	if err := moveFile(src, filepath.Join(destDir, newName)); err != nil {
+		return "", err
+	}
+	return newName, nil
 }
 
 // --- Outline ---

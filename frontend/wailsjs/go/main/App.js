@@ -6,6 +6,18 @@ export function CreateProject(arg1) {
   return window['go']['main']['App']['CreateProject'](arg1);
 }
 
+export function DeleteChapter(arg1, arg2) {
+  return window['go']['main']['App']['DeleteChapter'](arg1, arg2);
+}
+
+export function DeleteScene(arg1, arg2) {
+  return window['go']['main']['App']['DeleteScene'](arg1, arg2);
+}
+
+export function EmptyTrash() {
+  return window['go']['main']['App']['EmptyTrash']();
+}
+
 export function ListChapters(arg1) {
   return window['go']['main']['App']['ListChapters'](arg1);
 }
@@ -14,12 +26,24 @@ export function ListCharacters(arg1) {
   return window['go']['main']['App']['ListCharacters'](arg1);
 }
 
+export function ListScenes(arg1) {
+  return window['go']['main']['App']['ListScenes'](arg1);
+}
+
+export function ListTrash() {
+  return window['go']['main']['App']['ListTrash']();
+}
+
 export function LoadProject(arg1) {
   return window['go']['main']['App']['LoadProject'](arg1);
 }
 
 export function OpenProject() {
   return window['go']['main']['App']['OpenProject']();
+}
+
+export function PromoteSceneToChapter(arg1, arg2) {
+  return window['go']['main']['App']['PromoteSceneToChapter'](arg1, arg2);
 }
 
 export function ReadChapter(arg1, arg2) {
@@ -34,12 +58,24 @@ export function ReadOutline(arg1) {
   return window['go']['main']['App']['ReadOutline'](arg1);
 }
 
+export function ReadScene(arg1, arg2) {
+  return window['go']['main']['App']['ReadScene'](arg1, arg2);
+}
+
 export function ReadWorldFile(arg1, arg2) {
   return window['go']['main']['App']['ReadWorldFile'](arg1, arg2);
 }
 
+export function RestoreTrashItem(arg1) {
+  return window['go']['main']['App']['RestoreTrashItem'](arg1);
+}
+
 export function SaveProjectMeta(arg1, arg2) {
   return window['go']['main']['App']['SaveProjectMeta'](arg1, arg2);
+}
+
+export function SetManuscriptOrder(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SetManuscriptOrder'](arg1, arg2, arg3);
 }
 
 export function WriteChapter(arg1, arg2, arg3) {
@@ -52,6 +88,10 @@ export function WriteCharacter(arg1, arg2, arg3) {
 
 export function WriteOutline(arg1, arg2) {
   return window['go']['main']['App']['WriteOutline'](arg1, arg2);
+}
+
+export function WriteScene(arg1, arg2, arg3) {
+  return window['go']['main']['App']['WriteScene'](arg1, arg2, arg3);
 }
 
 export function WriteWorldFile(arg1, arg2, arg3) {

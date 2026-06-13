@@ -7,6 +7,7 @@ import OutlineView from "./components/views/OutlineView";
 import CharactersView from "./components/views/CharactersView";
 import WorldBuildingView from "./components/views/WorldBuildingView";
 import ProjectSettingsView from "./components/views/ProjectSettingsView";
+import TrashView from "./components/views/TrashView";
 
 export default function App() {
     const [project, setProject] = useState<main.Project | null>(null);
@@ -30,11 +31,13 @@ export default function App() {
             <main className="main">
                 {section === "manuscript" ? (
                     <ManuscriptView project={project} />
+                ) : section === "outline" ? (
+                    <OutlineView project={project} />
                 ) : (
                     <div className="view">
-                        {section === "outline" && <OutlineView project={project} />}
                         {section === "characters" && <CharactersView project={project} />}
                         {section === "worldbuilding" && <WorldBuildingView project={project} />}
+                        {section === "trash" && <TrashView />}
                         {section === "settings" && (
                             <ProjectSettingsView project={project} onMetaSaved={(meta) => {
                                 setProject(main.Project.createFrom({ ...project, meta }));

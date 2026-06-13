@@ -4,13 +4,25 @@ import {main} from '../models';
 
 export function CreateProject(arg1:string):Promise<main.Project>;
 
+export function DeleteChapter(arg1:string,arg2:string):Promise<void>;
+
+export function DeleteScene(arg1:string,arg2:string):Promise<void>;
+
+export function EmptyTrash():Promise<void>;
+
 export function ListChapters(arg1:string):Promise<Array<main.ChapterInfo>>;
 
 export function ListCharacters(arg1:string):Promise<Array<string>>;
 
+export function ListScenes(arg1:string):Promise<Array<main.ChapterInfo>>;
+
+export function ListTrash():Promise<Array<main.TrashItem>>;
+
 export function LoadProject(arg1:string):Promise<main.Project>;
 
 export function OpenProject():Promise<main.Project>;
+
+export function PromoteSceneToChapter(arg1:string,arg2:string):Promise<string>;
 
 export function ReadChapter(arg1:string,arg2:string):Promise<string>;
 
@@ -18,14 +30,22 @@ export function ReadCharacter(arg1:string,arg2:string):Promise<string>;
 
 export function ReadOutline(arg1:string):Promise<string>;
 
+export function ReadScene(arg1:string,arg2:string):Promise<string>;
+
 export function ReadWorldFile(arg1:string,arg2:string):Promise<string>;
 
+export function RestoreTrashItem(arg1:string):Promise<string>;
+
 export function SaveProjectMeta(arg1:string,arg2:main.ProjectMeta):Promise<main.ProjectMeta>;
+
+export function SetManuscriptOrder(arg1:string,arg2:string,arg3:Array<string>):Promise<void>;
 
 export function WriteChapter(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function WriteCharacter(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function WriteOutline(arg1:string,arg2:string):Promise<void>;
+
+export function WriteScene(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function WriteWorldFile(arg1:string,arg2:string,arg3:string):Promise<void>;

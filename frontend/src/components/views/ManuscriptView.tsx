@@ -1,211 +1,219 @@
 import { useEffect, useRef, useState } from "react";
-import { ListChapters, ReadChapter, WriteChapter } from "../../../wailsjs/go/main/App";
+import {
+    DeleteChapter,
+    DeleteScene,
+    ListChapters,
+    ListScenes,
+    PromoteSceneToChapter,
+    ReadChapter,
+    ReadScene,
+    SetManuscriptOrder,
+    WriteChapter,
+    WriteScene,
+} from "../../../wailsjs/go/main/App";
 import { main } from "../../../wailsjs/go/models";
+import DocEditor from "../DocEditor";
+import { nextNumberedFilename } from "../../docnames";
 
 interface Props {
     project: main.Project;
 }
 
-type SaveState = "idle" | "unsaved" | "saved" | "error";
-
-const AUTOSAVE_DELAY_MS = 800;
-
-function countWords(text: string): number {
-    const trimmed = text.trim();
-    return trimmed ? trimmed.split(/\s+/).length : 0;
-}
-
-// Mirrors splitChapter in project.go: the first # heading is the title,
-// everything after it is the body.
-function parseChapter(content: string): { title: string; body: string } {
-    const lines = content.split("\n");
-    for (let i = 0; i < lines.length; i++) {
-        const trimmed = lines[i].trim();
-        if (!trimmed) continue;
-        if (trimmed.startsWith("#")) {
-            return {
-                title: trimmed.replace(/^#+\s*/, ""),
-                body: lines.slice(i + 1).join("\n").replace(/^\n+/, ""),
-            };
-        }
-        break;
-    }
-    return { title: "", body: content };
-}
-
-function serializeChapter(title: string, body: string): string {
-    const t = title.trim();
-    return t ? `# ${t}\n\n${body}` : body;
-}
-
-function nextChapterFilename(chapters: main.ChapterInfo[]): { filename: string; number: number } {
-    let max = 0;
-    for (const c of chapters) {
-        const m = c.filename.match(/^chapter-(\d+)\.md$/);
-        if (m) max = Math.max(max, parseInt(m[1], 10));
-    }
-    const number = max + 1 || chapters.length + 1;
-    return { filename: `chapter-${String(number).padStart(2, "0")}.md`, number };
-}
+type DocRef = { kind: "chapter" | "scene"; filename: string };
 
 export default function ManuscriptView({ project }: Props) {
     const [chapters, setChapters] = useState<main.ChapterInfo[]>([]);
-    const [active, setActive] = useState<string | null>(null);
-    const [title, setTitle] = useState("");
-    const [body, setBody] = useState("");
-    const [saveState, setSaveState] = useState<SaveState>("idle");
+    const [scenes, setScenes] = useState<main.ChapterInfo[]>([]);
+    const [active, setActive] = useState<DocRef | null>(null);
     const [error, setError] = useState("");
-
-    const saveTimer = useRef<number | undefined>(undefined);
-    const titleRef = useRef("");
-    const bodyRef = useRef("");
-    const activeRef = useRef<string | null>(null);
-    const dirtyRef = useRef(false);
-
-    titleRef.current = title;
-    bodyRef.current = body;
-    activeRef.current = active;
+    const [dragOverKey, setDragOverKey] = useState<string | null>(null);
+    const dragRef = useRef<{ kind: DocRef["kind"]; index: number } | null>(null);
 
     useEffect(() => {
-        ListChapters(project.path)
-            .then((list) => {
-                setChapters(list);
-                if (list.length > 0) openChapter(list[0].filename);
+        Promise.all([ListChapters(project.path), ListScenes(project.path)])
+            .then(([chapterList, sceneList]) => {
+                setChapters(chapterList);
+                setScenes(sceneList);
+                if (chapterList.length > 0) {
+                    setActive({ kind: "chapter", filename: chapterList[0].filename });
+                }
             })
             .catch((err) => setError(String(err)));
-        // Flush any unsaved work when the view unmounts (e.g. switching sections).
-        return () => {
-            window.clearTimeout(saveTimer.current);
-            if (dirtyRef.current && activeRef.current) {
-                WriteChapter(
-                    project.path,
-                    activeRef.current,
-                    serializeChapter(titleRef.current, bodyRef.current)
-                ).catch(() => {});
-            }
-        };
     }, [project.path]);
 
-    async function saveNow(filename: string) {
-        window.clearTimeout(saveTimer.current);
-        const chapterTitle = titleRef.current;
-        const chapterBody = bodyRef.current;
-        try {
-            await WriteChapter(project.path, filename, serializeChapter(chapterTitle, chapterBody));
-            dirtyRef.current = false;
-            setSaveState("saved");
-            setChapters((cs) =>
-                cs.map((c) =>
-                    c.filename === filename
-                        ? main.ChapterInfo.createFrom({
-                              filename,
-                              title: chapterTitle.trim() || filename.replace(/\.md$/, ""),
-                              wordCount: countWords(chapterBody),
-                          })
-                        : c
-                )
+    function updateListEntry(ref: DocRef, info: { title: string; wordCount: number }) {
+        const apply = (list: main.ChapterInfo[]) =>
+            list.map((c) =>
+                c.filename === ref.filename
+                    ? main.ChapterInfo.createFrom({ filename: ref.filename, ...info })
+                    : c
             );
-        } catch (err) {
-            setSaveState("error");
-            setError(String(err));
-        }
-    }
-
-    function scheduleSave() {
-        if (!activeRef.current) return;
-        dirtyRef.current = true;
-        setSaveState("unsaved");
-        window.clearTimeout(saveTimer.current);
-        const filename = activeRef.current;
-        saveTimer.current = window.setTimeout(() => saveNow(filename), AUTOSAVE_DELAY_MS);
-    }
-
-    function handleTitleChange(value: string) {
-        setTitle(value);
-        titleRef.current = value;
-        scheduleSave();
-    }
-
-    function handleBodyChange(value: string) {
-        setBody(value);
-        bodyRef.current = value;
-        scheduleSave();
-    }
-
-    async function openChapter(filename: string) {
-        if (dirtyRef.current && activeRef.current) {
-            await saveNow(activeRef.current);
-        }
-        setError("");
-        try {
-            const content = await ReadChapter(project.path, filename);
-            const parsed = parseChapter(content);
-            setActive(filename);
-            setTitle(parsed.title);
-            setBody(parsed.body);
-            setSaveState("idle");
-        } catch (err) {
-            setError(String(err));
-        }
+        if (ref.kind === "chapter") setChapters(apply);
+        else setScenes(apply);
     }
 
     async function newChapter() {
-        const { filename, number } = nextChapterFilename(chapters);
+        const { filename, number } = nextNumberedFilename(chapters, "chapter");
         try {
             await WriteChapter(project.path, filename, `# Chapter ${number}\n\n`);
-            const list = await ListChapters(project.path);
-            setChapters(list);
-            await openChapter(filename);
+            setChapters(await ListChapters(project.path));
+            setActive({ kind: "chapter", filename });
         } catch (err) {
             setError(String(err));
         }
     }
 
-    const words = countWords(body);
+    async function trashDoc(ref: DocRef) {
+        setError("");
+        try {
+            if (ref.kind === "chapter") await DeleteChapter(project.path, ref.filename);
+            else await DeleteScene(project.path, ref.filename);
+            const [chapterList, sceneList] = await Promise.all([
+                ListChapters(project.path),
+                ListScenes(project.path),
+            ]);
+            setChapters(chapterList);
+            setScenes(sceneList);
+            if (active?.kind === ref.kind && active.filename === ref.filename) {
+                setActive(
+                    chapterList.length > 0
+                        ? { kind: "chapter", filename: chapterList[0].filename }
+                        : null
+                );
+            }
+        } catch (err) {
+            setError(String(err));
+        }
+    }
+
+    async function makeChapter(filename: string) {
+        setError("");
+        try {
+            const newName = await PromoteSceneToChapter(project.path, filename);
+            const [chapterList, sceneList] = await Promise.all([
+                ListChapters(project.path),
+                ListScenes(project.path),
+            ]);
+            setChapters(chapterList);
+            setScenes(sceneList);
+            if (active?.kind === "scene" && active.filename === filename) {
+                setActive({ kind: "chapter", filename: newName });
+            }
+        } catch (err) {
+            setError(String(err));
+        }
+    }
+
+    // Drop before `index`; index === list.length appends to the end.
+    function reorder(kind: DocRef["kind"], index: number) {
+        const d = dragRef.current;
+        dragRef.current = null;
+        setDragOverKey(null);
+        if (!d || d.kind !== kind) return;
+        if (d.index === index || d.index + 1 === index) return;
+        const list = kind === "chapter" ? chapters : scenes;
+        const next = [...list];
+        const [moved] = next.splice(d.index, 1);
+        next.splice(d.index < index ? index - 1 : index, 0, moved);
+        if (kind === "chapter") setChapters(next);
+        else setScenes(next);
+        SetManuscriptOrder(project.path, kind, next.map((c) => c.filename)).catch((err) =>
+            setError(String(err))
+        );
+    }
+
+    const docButton = (kind: DocRef["kind"]) => (c: main.ChapterInfo, index: number) => (
+        <div
+            className={`doc-row ${dragOverKey === `${kind}-${index}` ? "drag-over" : ""}`}
+            key={c.filename}
+            draggable
+            onDragStart={() => (dragRef.current = { kind, index })}
+            onDragEnd={() => {
+                dragRef.current = null;
+                setDragOverKey(null);
+            }}
+            onDragOver={(e) => {
+                e.preventDefault();
+                setDragOverKey(`${kind}-${index}`);
+            }}
+            onDragLeave={() => setDragOverKey(null)}
+            onDrop={() => reorder(kind, index)}
+        >
+            <button
+                className={`doc-select ${
+                    active?.kind === kind && active.filename === c.filename ? "active" : ""
+                }`}
+                onClick={() => setActive({ kind, filename: c.filename })}
+            >
+                <span className="chapter-title">{c.title}</span>
+                <span className="chapter-words">{c.wordCount.toLocaleString()}</span>
+            </button>
+            {kind === "scene" && (
+                <button
+                    className="doc-trash"
+                    title="Make chapter"
+                    onClick={() => makeChapter(c.filename)}
+                >
+                    §
+                </button>
+            )}
+            <button
+                className="doc-trash"
+                title="Move to Trash"
+                onClick={() => trashDoc({ kind, filename: c.filename })}
+            >
+                ✕
+            </button>
+        </div>
+    );
+
+    const listDropEnd = (kind: DocRef["kind"], length: number) => (
+        <div
+            className={`list-drop-end ${dragOverKey === `${kind}-end` ? "drag-over" : ""}`}
+            onDragOver={(e) => {
+                e.preventDefault();
+                setDragOverKey(`${kind}-end`);
+            }}
+            onDragLeave={() => setDragOverKey(null)}
+            onDrop={() => reorder(kind, length)}
+        />
+    );
 
     return (
         <div className="manuscript">
             <div className="chapter-list">
-                {chapters.map((c) => (
-                    <button
-                        key={c.filename}
-                        className={active === c.filename ? "active" : ""}
-                        onClick={() => openChapter(c.filename)}
-                    >
-                        <span className="chapter-title">{c.title}</span>
-                        <span className="chapter-words">{c.wordCount.toLocaleString()}</span>
-                    </button>
-                ))}
+                <div className="list-heading">Chapters</div>
+                {chapters.map(docButton("chapter"))}
+                {listDropEnd("chapter", chapters.length)}
                 <button className="new-chapter" onClick={newChapter}>
                     + New Chapter
                 </button>
+                {scenes.length > 0 && (
+                    <>
+                        <div className="list-heading">Scenes</div>
+                        <div className="list-hint">From the outline · manuscript/scenes/</div>
+                        {scenes.map(docButton("scene"))}
+                        {listDropEnd("scene", scenes.length)}
+                    </>
+                )}
             </div>
             <div className="editor-pane">
                 {active ? (
-                    <>
-                        <input
-                            className="editor-title"
-                            value={title}
-                            onChange={(e) => handleTitleChange(e.target.value)}
-                            placeholder="Chapter title"
-                            spellCheck
-                        />
-                        <textarea
-                            className="editor"
-                            value={body}
-                            onChange={(e) => handleBodyChange(e.target.value)}
-                            spellCheck
-                            placeholder="Start writing…"
-                        />
-                        <div className="editor-status">
-                            <span>{words.toLocaleString()} words</span>
-                            <span className={`save-status ${saveState}`}>
-                                {saveState === "unsaved" && "Saving…"}
-                                {saveState === "saved" && "Saved"}
-                                {saveState === "error" && `Could not save: ${error}`}
-                            </span>
-                        </div>
-                    </>
+                    <DocEditor
+                        key={`${active.kind}:${active.filename}`}
+                        read={() =>
+                            active.kind === "chapter"
+                                ? ReadChapter(project.path, active.filename)
+                                : ReadScene(project.path, active.filename)
+                        }
+                        write={(content) =>
+                            active.kind === "chapter"
+                                ? WriteChapter(project.path, active.filename, content)
+                                : WriteScene(project.path, active.filename, content)
+                        }
+                        onSaved={(info) => updateListEntry(active, info)}
+                        fallbackTitle={active.filename.replace(/\.md$/, "")}
+                    />
                 ) : (
                     <div className="view">
                         <h2>Manuscript</h2>

@@ -3,7 +3,8 @@ export type Section =
     | "outline"
     | "characters"
     | "worldbuilding"
-    | "settings";
+    | "settings"
+    | "trash";
 
 const NAV_ITEMS: { key: Section; label: string }[] = [
     { key: "manuscript", label: "Manuscript" },
@@ -37,6 +38,12 @@ export default function Sidebar({ projectName, active, onNavigate, onCloseProjec
                 ))}
             </nav>
             <div className="footer">
+                <button
+                    className={active === "trash" ? "active" : ""}
+                    onClick={() => onNavigate("trash")}
+                >
+                    Trash
+                </button>
                 <button
                     className={active === "settings" ? "active" : ""}
                     onClick={() => onNavigate("settings")}
