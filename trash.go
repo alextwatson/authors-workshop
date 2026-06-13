@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -9,13 +10,13 @@ import (
 	"strings"
 )
 
-// TrashItem is a scene or chapter file moved to the session trash.
+// TrashItem is a scene, chapter, or character file moved to the session trash.
 // The trash lives in a temp dir and is wiped when the app shuts down,
 // so items are only recoverable until the trash is emptied or the
 // application closes.
 type TrashItem struct {
 	ID          string `json:"id"`
-	Kind        string `json:"kind"` // "chapter" | "scene"
+	Kind        string `json:"kind"` // "chapter" | "scene" | "character"
 	Filename    string `json:"filename"`
 	Title       string `json:"title"`
 	ProjectPath string `json:"projectPath"`
@@ -23,10 +24,14 @@ type TrashItem struct {
 }
 
 func docDir(projectPath, kind string) string {
-	if kind == "scene" {
+	switch kind {
+	case "scene":
 		return filepath.Join(projectPath, manuscriptDir, scenesSubdir)
+	case "character":
+		return filepath.Join(projectPath, charactersDir)
+	default:
+		return filepath.Join(projectPath, manuscriptDir)
 	}
-	return filepath.Join(projectPath, manuscriptDir)
 }
 
 // moveFile renames, falling back to copy+delete for cross-device moves
@@ -59,11 +64,12 @@ func availableName(dir, name string) string {
 	if _, err := os.Stat(filepath.Join(dir, name)); os.IsNotExist(err) {
 		return name
 	}
-	base := strings.TrimSuffix(name, ".md")
+	ext := filepath.Ext(name)
+	base := strings.TrimSuffix(name, ext)
 	for i := 1; ; i++ {
-		candidate := fmt.Sprintf("%s-restored-%d.md", base, i)
+		candidate := fmt.Sprintf("%s-restored-%d%s", base, i, ext)
 		if i == 1 {
-			candidate = base + "-restored.md"
+			candidate = base + "-restored" + ext
 		}
 		if _, err := os.Stat(filepath.Join(dir, candidate)); os.IsNotExist(err) {
 			return candidate
@@ -86,9 +92,16 @@ func (a *App) trashDoc(projectPath, kind, filename string) error {
 		a.trashDir = dir
 	}
 	src := filepath.Join(docDir(projectPath, kind), name)
-	title := strings.TrimSuffix(name, ".md")
+	title := strings.TrimSuffix(name, filepath.Ext(name))
 	if data, err := os.ReadFile(src); err == nil {
-		if t, _ := splitChapter(string(data)); t != "" {
+		if kind == "character" {
+			var c struct {
+				Name string `json:"name"`
+			}
+			if json.Unmarshal(data, &c) == nil && c.Name != "" {
+				title = c.Name
+			}
+		} else if t, _ := splitChapter(string(data)); t != "" {
 			title = t
 		}
 	}
@@ -115,6 +128,10 @@ func (a *App) DeleteChapter(projectPath, filename string) error {
 
 func (a *App) DeleteScene(projectPath, filename string) error {
 	return a.trashDoc(projectPath, "scene", filename)
+}
+
+func (a *App) DeleteCharacter(projectPath, filename string) error {
+	return a.trashDoc(projectPath, "character", filename)
 }
 
 func (a *App) ListTrash() []TrashItem {

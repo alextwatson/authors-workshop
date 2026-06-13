@@ -1128,3 +1128,197 @@ button.primary:hover {
 .save-status.error {
   color: var(--danger);
 }
+
+/* --- Character sheet --- */
+
+.character-sheet {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 40px 24px;
+  overflow-y: auto;
+}
+
+.character-sheet .editor-title {
+  padding: 48px 0 12px;
+}
+
+.character-sheet .editor-status {
+  padding: 8px 0 0;
+  margin-top: auto;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 16px;
+}
+
+.field-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+}
+
+.field-input {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: var(--font-ui);
+  font-size: 15px;
+  color: var(--text);
+}
+
+.field-input:focus {
+  border-color: var(--accent-dim);
+  outline: none;
+}
+
+.field-textarea {
+  min-height: 72px;
+  resize: vertical;
+  font-family: var(--font-serif);
+  line-height: 1.6;
+}
+
+.attrs {
+  margin-top: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.attrs-heading {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+}
+
+.attr-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.attr-top {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.attr-label {
+  flex: 1;
+  padding: 6px 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--text);
+}
+
+.attr-label:focus {
+  border-color: var(--accent-dim);
+  outline: none;
+}
+
+.attr-type {
+  padding: 6px 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--text);
+}
+
+.attr-remove {
+  background: none;
+  border: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 6px;
+}
+
+.attr-remove:hover {
+  color: var(--danger);
+}
+
+.attr-scale {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.attr-scale-value {
+  width: 88px;
+  padding: 6px 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: var(--font-ui);
+  font-size: 15px;
+  color: var(--text);
+}
+
+.attr-scale-value:focus {
+  border-color: var(--accent-dim);
+  outline: none;
+}
+
+.attr-scale-range {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.attr-scale-range label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.attr-scale-range input {
+  width: 52px;
+  padding: 4px 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--text);
+}
+
+.attr-add {
+  align-self: flex-start;
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.attr-add:hover {
+  border-color: var(--accent-dim);
+  color: var(--text);
+}
+
+.save-status-spacer {
+  flex: 1;
+}

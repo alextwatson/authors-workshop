@@ -38,8 +38,8 @@ export default function TrashView() {
         <>
             <h2>Trash</h2>
             <p className="subtitle">
-                Deleted scenes and chapters stay here, recoverable until you empty the
-                trash or quit the app.
+                Deleted scenes, chapters, and characters stay here, recoverable until you
+                empty the trash or quit the app.
             </p>
             {error && <p className="subtitle save-status error">{error}</p>}
             {items.length === 0 ? (
@@ -51,7 +51,11 @@ export default function TrashView() {
                             <li key={item.id}>
                                 <span>
                                     <span className="doc-glyph">
-                                        {item.kind === "scene" ? "◇ " : "§ "}
+                                        {item.kind === "scene"
+                                            ? "◇ "
+                                            : item.kind === "character"
+                                            ? "☻ "
+                                            : "§ "}
                                     </span>
                                     {item.title}
                                 </span>

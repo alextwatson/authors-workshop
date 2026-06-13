@@ -6,6 +6,8 @@ export function CreateProject(arg1:string):Promise<main.Project>;
 
 export function DeleteChapter(arg1:string,arg2:string):Promise<void>;
 
+export function DeleteCharacter(arg1:string,arg2:string):Promise<void>;
+
 export function DeleteScene(arg1:string,arg2:string):Promise<void>;
 
 export function EmptyTrash():Promise<void>;
