@@ -15,20 +15,27 @@ import {
     WriteScene,
 } from "../../../wailsjs/go/main/App";
 import { main } from "../../../wailsjs/go/models";
+import { Section } from "../Sidebar";
 import DocEditor, { countWords, parseDoc } from "../DocEditor";
 import { newId, nextNumberedFilename } from "../../docnames";
 import {
     DocKind,
     OutlineGroup,
     OutlineNode,
+    Scale,
     TagColor,
     parseGroups,
     parseOutline,
+    parseScales,
     serializeOutline,
 } from "../../outline";
 
 interface Props {
     project: main.Project;
+    // When navigated from the Emotional Arc, the outline-object id to scroll to
+    // and briefly highlight.
+    focusId?: string | null;
+    onNavigate?: (section: Section, focusId?: string | null) => void;
 }
 
 type DocRef = { kind: DocKind; file: string };
@@ -87,13 +94,14 @@ function normalizeNodes(ns: OutlineNode[]): OutlineNode[] {
                 tagLabel: "",
                 file: a.file,
                 arms: [],
+                emotions: [],
             });
         }
     }
     return out;
 }
 
-export default function OutlineView({ project }: Props) {
+export default function OutlineView({ project, focusId, onNavigate }: Props) {
     const [nodes, setNodes] = useState<OutlineNode[]>([]);
     const [groups, setGroups] = useState<OutlineGroup[]>([]);
     const [scenes, setScenes] = useState<main.ChapterInfo[]>([]);
@@ -104,9 +112,13 @@ export default function OutlineView({ project }: Props) {
     const [saveState, setSaveState] = useState<SaveState>("idle");
     const [error, setError] = useState("");
     const [assigningId, setAssigningId] = useState<string | null>(null);
+    const [highlightId, setHighlightId] = useState<string | null>(null);
 
     const nodesRef = useRef<OutlineNode[]>([]);
     const groupsRef = useRef<OutlineGroup[]>([]);
+    // Scales are authored in the Arc view but live in outline.json, so preserve
+    // them across this view's autosaves rather than dropping them.
+    const scalesRef = useRef<Scale[]>([]);
     const assignSnapshot = useRef<OutlineGroup[] | null>(null);
     const dirtyRef = useRef(false);
     const saveTimer = useRef<number | undefined>(undefined);
@@ -130,6 +142,7 @@ export default function OutlineView({ project }: Props) {
             .then(([json, sceneList, chapterList, trashList]) => {
                 const original = parseOutline(json);
                 const originalGroups = parseGroups(json);
+                scalesRef.current = parseScales(json);
                 let parsed = original;
                 const inList = (kind: DocKind, file: string) =>
                     (kind === "scene" ? sceneList : chapterList).some((d) => d.filename === file);
@@ -162,8 +175,8 @@ export default function OutlineView({ project }: Props) {
                     .map((g) => ({ ...g, members: g.members.filter((m) => liveIds.has(m)) }))
                     .filter((g) => g.members.length > 0);
                 const changed =
-                    serializeOutline(parsed, liveGroups) !==
-                    serializeOutline(original, originalGroups);
+                    serializeOutline(parsed, liveGroups, scalesRef.current) !==
+                    serializeOutline(original, originalGroups, scalesRef.current);
                 nodesRef.current = parsed;
                 groupsRef.current = liveGroups;
                 setNodes(parsed);
@@ -173,7 +186,10 @@ export default function OutlineView({ project }: Props) {
                 setTrashItems(trashList);
                 setLoaded(true);
                 if (changed) {
-                    WriteOutline(project.path, serializeOutline(parsed, liveGroups)).catch(() => {});
+                    WriteOutline(
+                        project.path,
+                        serializeOutline(parsed, liveGroups, scalesRef.current)
+                    ).catch(() => {});
                 }
             })
             .catch((err) => setError(String(err)));
@@ -182,7 +198,7 @@ export default function OutlineView({ project }: Props) {
             if (dirtyRef.current) {
                 WriteOutline(
                     project.path,
-                    serializeOutline(nodesRef.current, groupsRef.current)
+                    serializeOutline(nodesRef.current, groupsRef.current, scalesRef.current)
                 ).catch(() => {});
             }
         };
@@ -196,7 +212,7 @@ export default function OutlineView({ project }: Props) {
             try {
                 await WriteOutline(
                     project.path,
-                    serializeOutline(nodesRef.current, groupsRef.current)
+                    serializeOutline(nodesRef.current, groupsRef.current, scalesRef.current)
                 );
                 dirtyRef.current = false;
                 setSaveState("saved");
@@ -234,7 +250,10 @@ export default function OutlineView({ project }: Props) {
         const id = newId();
         // Snapshot the pre-add state so Cancel removes the new arc entirely.
         assignSnapshot.current = groupsRef.current;
-        mutateGroups((gs) => [...gs, { id, label: "Plot arc", note: "", color: "green", members: [] }]);
+        mutateGroups((gs) => [
+            ...gs,
+            { id, label: "Plot arc", note: "", color: "green", members: [], emotions: [] },
+        ]);
         setAssigningId(id);
     }
 
@@ -312,6 +331,18 @@ export default function OutlineView({ project }: Props) {
         return () => ro.disconnect();
     }, [nodes, groups, editing]);
 
+    // Arriving from the Emotional Arc: scroll the focused card into view and
+    // flash it. Runs once the board has rendered so the element exists.
+    useEffect(() => {
+        if (!loaded || !focusId) return;
+        const el = nodeEls.current.get(focusId);
+        if (!el) return;
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        setHighlightId(focusId);
+        const t = window.setTimeout(() => setHighlightId(null), 2000);
+        return () => window.clearTimeout(t);
+    }, [loaded, focusId]);
+
     function patchNode(id: string, patch: Partial<OutlineNode>) {
         mutate((ns) => ns.map((n) => (n.id === id ? { ...n, ...patch } : n)));
     }
@@ -348,7 +379,7 @@ export default function OutlineView({ project }: Props) {
     function addPoint() {
         mutate((ns) => [
             ...ns,
-            { id: newId(), kind: "point", title: "", note: "", tag: "", tagLabel: "", file: "", arms: [] },
+            { id: newId(), kind: "point", title: "", note: "", tag: "", tagLabel: "", file: "", arms: [], emotions: [] },
         ]);
     }
 
@@ -357,7 +388,7 @@ export default function OutlineView({ project }: Props) {
             const file = await createDoc(kind, "", "");
             mutate((ns) => [
                 ...ns,
-                { id: newId(), kind, title: "", note: "", tag: "", tagLabel: "", file, arms: [] },
+                { id: newId(), kind, title: "", note: "", tag: "", tagLabel: "", file, arms: [], emotions: [] },
             ]);
             setEditing({ kind, file });
         } catch (err) {
@@ -537,6 +568,7 @@ export default function OutlineView({ project }: Props) {
             tagLabel: "",
             file: arm.file,
             arms: [],
+            emotions: [],
         };
         mutate((ns) => {
             const next = ns.map((n) =>
@@ -757,7 +789,9 @@ export default function OutlineView({ project }: Props) {
                             </div>
                         )}
                         <div
-                            className="outline-node-wrap"
+                            className={`outline-node-wrap ${
+                                highlightId === n.id ? "highlight" : ""
+                            }`}
                             ref={(el) => {
                                 if (el) nodeEls.current.set(n.id, el);
                                 else nodeEls.current.delete(n.id);
@@ -769,6 +803,15 @@ export default function OutlineView({ project }: Props) {
                             onDragLeave={() => setDragOverKey(null)}
                             onDrop={() => dropOnCard(i)}
                         >
+                            {onNavigate && n.emotions.length > 0 && (
+                                <button
+                                    className="emotion-badge"
+                                    title="View in Emotional Arc"
+                                    onClick={() => onNavigate("arc", n.id)}
+                                >
+                                    ♥ {n.emotions.length}
+                                </button>
+                            )}
                             {assigningId && (
                                 <button
                                     className={`assign-overlay ${

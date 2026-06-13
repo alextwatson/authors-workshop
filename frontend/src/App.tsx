@@ -4,6 +4,7 @@ import StartupScreen from "./components/StartupScreen";
 import Sidebar, { Section } from "./components/Sidebar";
 import ManuscriptView from "./components/views/ManuscriptView";
 import OutlineView from "./components/views/OutlineView";
+import ArcView from "./components/views/ArcView";
 import CharactersView from "./components/views/CharactersView";
 import WorldBuildingView from "./components/views/WorldBuildingView";
 import ProjectSettingsView from "./components/views/ProjectSettingsView";
@@ -12,12 +13,20 @@ import TrashView from "./components/views/TrashView";
 export default function App() {
     const [project, setProject] = useState<main.Project | null>(null);
     const [section, setSection] = useState<Section>("manuscript");
+    // An optional outline-object id to focus when arriving in a section, used
+    // for the bidirectional Outline <-> Emotional Arc hyperlinks.
+    const [focusId, setFocusId] = useState<string | null>(null);
     const [sidebarOpen, setSidebarOpen] = useState(true);
+
+    function navigate(to: Section, focus: string | null = null) {
+        setSection(to);
+        setFocusId(focus);
+    }
 
     if (!project) {
         return <StartupScreen onProjectReady={(p) => {
             setProject(p);
-            setSection("manuscript");
+            navigate("manuscript");
         }} />;
     }
 
@@ -27,7 +36,7 @@ export default function App() {
                 <Sidebar
                     projectName={project.meta.name}
                     active={section}
-                    onNavigate={setSection}
+                    onNavigate={(s) => navigate(s)}
                     onCloseProject={() => setProject(null)}
                     onCollapse={() => setSidebarOpen(false)}
                 />
@@ -46,7 +55,13 @@ export default function App() {
                 {section === "manuscript" ? (
                     <ManuscriptView project={project} chromeVisible={sidebarOpen} />
                 ) : section === "outline" ? (
-                    <OutlineView project={project} />
+                    <OutlineView
+                        project={project}
+                        focusId={focusId}
+                        onNavigate={navigate}
+                    />
+                ) : section === "arc" ? (
+                    <ArcView project={project} focusId={focusId} onNavigate={navigate} />
                 ) : (
                     <div className="view">
                         {section === "characters" && <CharactersView project={project} />}
