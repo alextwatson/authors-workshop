@@ -1,45 +1,84 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import {
     DeleteChapter,
     DeleteScene,
     ListChapters,
+    ListParts,
     ListScenes,
     PromoteSceneToChapter,
     ReadChapter,
     ReadScene,
     SetManuscriptOrder,
+    SetParts,
     WriteChapter,
     WriteScene,
 } from "../../../wailsjs/go/main/App";
 import { main } from "../../../wailsjs/go/models";
 import DocEditor from "../DocEditor";
-import { nextNumberedFilename } from "../../docnames";
+import { newId, nextNumberedFilename } from "../../docnames";
 
 interface Props {
     project: main.Project;
+    // The chapter list is nested inside the sidebar menu: its reopen button
+    // only shows once the menu itself is open.
+    chromeVisible: boolean;
 }
 
 type DocRef = { kind: "chapter" | "scene"; filename: string };
 
-export default function ManuscriptView({ project }: Props) {
+export default function ManuscriptView({ project, chromeVisible }: Props) {
     const [chapters, setChapters] = useState<main.ChapterInfo[]>([]);
     const [scenes, setScenes] = useState<main.ChapterInfo[]>([]);
+    const [parts, setParts] = useState<main.ManuscriptPart[]>([]);
     const [active, setActive] = useState<DocRef | null>(null);
+    const [listOpen, setListOpen] = useState(true);
     const [error, setError] = useState("");
     const [dragOverKey, setDragOverKey] = useState<string | null>(null);
     const dragRef = useRef<{ kind: DocRef["kind"]; index: number } | null>(null);
 
     useEffect(() => {
-        Promise.all([ListChapters(project.path), ListScenes(project.path)])
-            .then(([chapterList, sceneList]) => {
+        Promise.all([ListChapters(project.path), ListScenes(project.path), ListParts(project.path)])
+            .then(([chapterList, sceneList, partList]) => {
                 setChapters(chapterList);
                 setScenes(sceneList);
+                // Drop dividers whose anchor chapter is gone, so they never orphan.
+                const names = new Set(chapterList.map((c) => c.filename));
+                const live = partList.filter((p) => names.has(p.before));
+                setParts(live);
+                if (live.length !== partList.length) {
+                    SetParts(project.path, live).catch(() => {});
+                }
                 if (chapterList.length > 0) {
                     setActive({ kind: "chapter", filename: chapterList[0].filename });
                 }
             })
             .catch((err) => setError(String(err)));
     }, [project.path]);
+
+    function persistParts(next: main.ManuscriptPart[]) {
+        setParts(next);
+        SetParts(project.path, next).catch((err) => setError(String(err)));
+    }
+
+    function addPartBefore(filename: string) {
+        if (parts.some((p) => p.before === filename)) return;
+        persistParts([
+            ...parts,
+            main.ManuscriptPart.createFrom({ id: newId(), label: "New Part", before: filename }),
+        ]);
+    }
+
+    function renamePart(id: string, label: string) {
+        setParts((ps) => ps.map((p) => (p.id === id ? main.ManuscriptPart.createFrom({ ...p, label }) : p)));
+    }
+
+    function commitParts() {
+        SetParts(project.path, parts).catch((err) => setError(String(err)));
+    }
+
+    function deletePart(id: string) {
+        persistParts(parts.filter((p) => p.id !== id));
+    }
 
     function updateListEntry(ref: DocRef, info: { title: string; wordCount: number }) {
         const apply = (list: main.ChapterInfo[]) =>
@@ -148,6 +187,15 @@ export default function ManuscriptView({ project }: Props) {
                 <span className="chapter-title">{c.title}</span>
                 <span className="chapter-words">{c.wordCount.toLocaleString()}</span>
             </button>
+            {kind === "chapter" && (
+                <button
+                    className="doc-trash"
+                    title="Add a Part break above"
+                    onClick={() => addPartBefore(c.filename)}
+                >
+                    ¶
+                </button>
+            )}
             {kind === "scene" && (
                 <button
                     className="doc-trash"
@@ -167,6 +215,28 @@ export default function ManuscriptView({ project }: Props) {
         </div>
     );
 
+    const partRows = (filename: string) =>
+        parts
+            .filter((p) => p.before === filename)
+            .map((p) => (
+                <div className="part-row" key={p.id}>
+                    <input
+                        className="part-label"
+                        value={p.label}
+                        placeholder="Part title"
+                        onChange={(e) => renamePart(p.id, e.target.value)}
+                        onBlur={commitParts}
+                    />
+                    <button
+                        className="part-delete"
+                        title="Remove Part break"
+                        onClick={() => deletePart(p.id)}
+                    >
+                        ✕
+                    </button>
+                </div>
+            ));
+
     const listDropEnd = (kind: DocRef["kind"], length: number) => (
         <div
             className={`list-drop-end ${dragOverKey === `${kind}-end` ? "drag-over" : ""}`}
@@ -181,23 +251,48 @@ export default function ManuscriptView({ project }: Props) {
 
     return (
         <div className="manuscript">
-            <div className="chapter-list">
-                <div className="list-heading">Chapters</div>
-                {chapters.map(docButton("chapter"))}
-                {listDropEnd("chapter", chapters.length)}
-                <button className="new-chapter" onClick={newChapter}>
-                    + New Chapter
-                </button>
-                {scenes.length > 0 && (
-                    <>
-                        <div className="list-heading">Scenes</div>
-                        <div className="list-hint">From the outline · manuscript/scenes/</div>
-                        {scenes.map(docButton("scene"))}
-                        {listDropEnd("scene", scenes.length)}
-                    </>
-                )}
-            </div>
+            {listOpen && (
+                <div className="chapter-list">
+                    <div className="list-top">
+                        <span className="list-heading">Chapters</span>
+                        <button
+                            className="collapse-btn"
+                            title="Hide chapters"
+                            onClick={() => setListOpen(false)}
+                        >
+                            «
+                        </button>
+                    </div>
+                    {chapters.map((c, index) => (
+                        <Fragment key={c.filename}>
+                            {partRows(c.filename)}
+                            {docButton("chapter")(c, index)}
+                        </Fragment>
+                    ))}
+                    {listDropEnd("chapter", chapters.length)}
+                    <button className="new-chapter" onClick={newChapter}>
+                        + New Chapter
+                    </button>
+                    {scenes.length > 0 && (
+                        <>
+                            <div className="list-heading">Scenes</div>
+                            <div className="list-hint">From the outline · manuscript/scenes/</div>
+                            {scenes.map(docButton("scene"))}
+                            {listDropEnd("scene", scenes.length)}
+                        </>
+                    )}
+                </div>
+            )}
             <div className="editor-pane">
+                {!listOpen && chromeVisible && (
+                    <button
+                        className="list-reopen"
+                        title="Show chapters"
+                        onClick={() => setListOpen(true)}
+                    >
+                        ☰
+                    </button>
+                )}
                 {active ? (
                     <DocEditor
                         key={`${active.kind}:${active.filename}`}

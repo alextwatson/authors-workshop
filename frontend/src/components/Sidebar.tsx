@@ -18,13 +18,25 @@ interface Props {
     active: Section;
     onNavigate: (section: Section) => void;
     onCloseProject: () => void;
+    onCollapse: () => void;
 }
 
-export default function Sidebar({ projectName, active, onNavigate, onCloseProject }: Props) {
+export default function Sidebar({
+    projectName,
+    active,
+    onNavigate,
+    onCloseProject,
+    onCollapse,
+}: Props) {
     return (
         <aside className="sidebar">
-            <div className="project-name" title={projectName}>
-                {projectName}
+            <div className="sidebar-header">
+                <div className="project-name" title={projectName}>
+                    {projectName}
+                </div>
+                <button className="collapse-btn" title="Hide menu" onClick={onCollapse}>
+                    «
+                </button>
             </div>
             <nav>
                 {NAV_ITEMS.map((item) => (

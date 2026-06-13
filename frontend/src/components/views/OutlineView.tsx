@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
     DeleteChapter,
     DeleteScene,
@@ -19,8 +19,10 @@ import DocEditor, { countWords, parseDoc } from "../DocEditor";
 import { newId, nextNumberedFilename } from "../../docnames";
 import {
     DocKind,
+    OutlineGroup,
     OutlineNode,
     TagColor,
+    parseGroups,
     parseOutline,
     serializeOutline,
 } from "../../outline";
@@ -93,6 +95,7 @@ function normalizeNodes(ns: OutlineNode[]): OutlineNode[] {
 
 export default function OutlineView({ project }: Props) {
     const [nodes, setNodes] = useState<OutlineNode[]>([]);
+    const [groups, setGroups] = useState<OutlineGroup[]>([]);
     const [scenes, setScenes] = useState<main.ChapterInfo[]>([]);
     const [chapters, setChapters] = useState<main.ChapterInfo[]>([]);
     const [trashItems, setTrashItems] = useState<main.TrashItem[]>([]);
@@ -100,14 +103,22 @@ export default function OutlineView({ project }: Props) {
     const [loaded, setLoaded] = useState(false);
     const [saveState, setSaveState] = useState<SaveState>("idle");
     const [error, setError] = useState("");
+    const [assigningId, setAssigningId] = useState<string | null>(null);
 
     const nodesRef = useRef<OutlineNode[]>([]);
+    const groupsRef = useRef<OutlineGroup[]>([]);
+    const assignSnapshot = useRef<OutlineGroup[] | null>(null);
     const dirtyRef = useRef(false);
     const saveTimer = useRef<number | undefined>(undefined);
     const dragData = useRef<
         { type: "node"; index: number } | { type: "arm"; nodeId: string; armId: string } | null
     >(null);
     const [dragOverKey, setDragOverKey] = useState<string | null>(null);
+
+    // Measured vertical spans for each group's curly brace, keyed by group id.
+    const spineRef = useRef<HTMLDivElement>(null);
+    const nodeEls = useRef<Map<string, HTMLDivElement>>(new Map());
+    const [braces, setBraces] = useState<Record<string, { top: number; height: number }>>({});
 
     useEffect(() => {
         Promise.all([
@@ -118,6 +129,7 @@ export default function OutlineView({ project }: Props) {
         ])
             .then(([json, sceneList, chapterList, trashList]) => {
                 const original = parseOutline(json);
+                const originalGroups = parseGroups(json);
                 let parsed = original;
                 const inList = (kind: DocKind, file: string) =>
                     (kind === "scene" ? sceneList : chapterList).some((d) => d.filename === file);
@@ -144,37 +156,48 @@ export default function OutlineView({ project }: Props) {
                     .filter((n) => n.kind === "point" || exists(n.kind as DocKind, n.file))
                     .map((n) => ({ ...n, arms: n.arms.filter((a) => exists(a.kind, a.file)) }));
                 parsed = normalizeNodes(parsed);
+                // Drop group members whose nodes are gone, then drop empty groups.
+                const liveIds = new Set(parsed.map((n) => n.id));
+                const liveGroups = originalGroups
+                    .map((g) => ({ ...g, members: g.members.filter((m) => liveIds.has(m)) }))
+                    .filter((g) => g.members.length > 0);
                 const changed =
-                    serializeOutline(parsed) !== serializeOutline(original);
+                    serializeOutline(parsed, liveGroups) !==
+                    serializeOutline(original, originalGroups);
                 nodesRef.current = parsed;
+                groupsRef.current = liveGroups;
                 setNodes(parsed);
+                setGroups(liveGroups);
                 setScenes(sceneList);
                 setChapters(chapterList);
                 setTrashItems(trashList);
                 setLoaded(true);
                 if (changed) {
-                    WriteOutline(project.path, serializeOutline(parsed)).catch(() => {});
+                    WriteOutline(project.path, serializeOutline(parsed, liveGroups)).catch(() => {});
                 }
             })
             .catch((err) => setError(String(err)));
         return () => {
             window.clearTimeout(saveTimer.current);
             if (dirtyRef.current) {
-                WriteOutline(project.path, serializeOutline(nodesRef.current)).catch(() => {});
+                WriteOutline(
+                    project.path,
+                    serializeOutline(nodesRef.current, groupsRef.current)
+                ).catch(() => {});
             }
         };
     }, [project.path]);
 
-    function mutate(update: (ns: OutlineNode[]) => OutlineNode[]) {
-        const next = normalizeNodes(update(nodesRef.current));
-        nodesRef.current = next;
-        setNodes(next);
+    function scheduleSave() {
         dirtyRef.current = true;
         setSaveState("unsaved");
         window.clearTimeout(saveTimer.current);
         saveTimer.current = window.setTimeout(async () => {
             try {
-                await WriteOutline(project.path, serializeOutline(nodesRef.current));
+                await WriteOutline(
+                    project.path,
+                    serializeOutline(nodesRef.current, groupsRef.current)
+                );
                 dirtyRef.current = false;
                 setSaveState("saved");
             } catch (err) {
@@ -183,6 +206,111 @@ export default function OutlineView({ project }: Props) {
             }
         }, AUTOSAVE_DELAY_MS);
     }
+
+    function mutate(update: (ns: OutlineNode[]) => OutlineNode[]) {
+        const next = normalizeNodes(update(nodesRef.current));
+        nodesRef.current = next;
+        setNodes(next);
+        // A removed node must also leave any group it belonged to.
+        const liveIds = new Set(next.map((n) => n.id));
+        const prunedGroups = groupsRef.current
+            .map((g) => ({ ...g, members: g.members.filter((m) => liveIds.has(m)) }))
+            .filter((g) => g.members.length > 0);
+        if (prunedGroups.length !== groupsRef.current.length) {
+            groupsRef.current = prunedGroups;
+            setGroups(prunedGroups);
+        }
+        scheduleSave();
+    }
+
+    function mutateGroups(update: (gs: OutlineGroup[]) => OutlineGroup[]) {
+        const next = update(groupsRef.current);
+        groupsRef.current = next;
+        setGroups(next);
+        scheduleSave();
+    }
+
+    function addGroup() {
+        const id = newId();
+        // Snapshot the pre-add state so Cancel removes the new arc entirely.
+        assignSnapshot.current = groupsRef.current;
+        mutateGroups((gs) => [...gs, { id, label: "Plot arc", note: "", color: "green", members: [] }]);
+        setAssigningId(id);
+    }
+
+    function startRegroup(id: string) {
+        assignSnapshot.current = groupsRef.current;
+        setAssigningId(id);
+    }
+
+    function doneGrouping() {
+        // An arc with no members has nothing to show — discard it.
+        const g = groupsRef.current.find((x) => x.id === assigningId);
+        if (g && g.members.length === 0) {
+            mutateGroups((gs) => gs.filter((x) => x.id !== assigningId));
+        }
+        assignSnapshot.current = null;
+        setAssigningId(null);
+    }
+
+    function cancelGrouping() {
+        if (assignSnapshot.current) {
+            const snap = assignSnapshot.current;
+            mutateGroups(() => snap);
+        }
+        assignSnapshot.current = null;
+        setAssigningId(null);
+    }
+
+    function toggleMember(groupId: string, nodeId: string) {
+        mutateGroups((gs) =>
+            gs.map((g) =>
+                g.id === groupId
+                    ? {
+                          ...g,
+                          members: g.members.includes(nodeId)
+                              ? g.members.filter((m) => m !== nodeId)
+                              : [...g.members, nodeId],
+                      }
+                    : g
+            )
+        );
+    }
+
+    function deleteGroup(id: string) {
+        if (assigningId === id) setAssigningId(null);
+        mutateGroups((gs) => gs.filter((g) => g.id !== id));
+    }
+
+    // Measure each group's vertical span from its members' card positions.
+    // Recomputes when nodes/groups change and whenever a card resizes (e.g.
+    // a note auto-grows), so braces stay aligned.
+    useLayoutEffect(() => {
+        function measure() {
+            const spine = spineRef.current;
+            if (!spine) return;
+            const base = spine.getBoundingClientRect().top;
+            const next: Record<string, { top: number; height: number }> = {};
+            for (const g of groups) {
+                let top = Infinity;
+                let bottom = -Infinity;
+                for (const id of g.members) {
+                    const el = nodeEls.current.get(id);
+                    if (!el) continue;
+                    const r = el.getBoundingClientRect();
+                    top = Math.min(top, r.top - base);
+                    bottom = Math.max(bottom, r.bottom - base);
+                }
+                if (top !== Infinity) next[g.id] = { top, height: bottom - top };
+            }
+            setBraces(next);
+        }
+        measure();
+        const ro = new ResizeObserver(measure);
+        if (spineRef.current) ro.observe(spineRef.current);
+        for (const el of nodeEls.current.values()) ro.observe(el);
+        return () => ro.disconnect();
+    }, [nodes, groups, editing]);
 
     function patchNode(id: string, patch: Partial<OutlineNode>) {
         mutate((ns) => ns.map((n) => (n.id === id ? { ...n, ...patch } : n)));
@@ -533,7 +661,76 @@ export default function OutlineView({ project }: Props) {
     return (
         <div className="outline">
             <div className="outline-board" onDragOver={(e) => e.preventDefault()}>
-              <div className="outline-spine">
+              <div className="outline-spine" ref={spineRef}>
+                {groups.map((g) => {
+                    const pos = braces[g.id];
+                    if (!pos) return null;
+                    return (
+                        <div
+                            key={g.id}
+                            className={`plot-arc ${assigningId === g.id ? "assigning" : ""}`}
+                            style={{ top: pos.top, height: pos.height }}
+                        >
+                            <div className={`arc-side ${assigningId === g.id ? "active" : ""}`}>
+                                <input
+                                    className={`arc-title ${g.color}`}
+                                    value={g.label}
+                                    placeholder="Plot arc"
+                                    onChange={(e) =>
+                                        mutateGroups((gs) =>
+                                            gs.map((x) =>
+                                                x.id === g.id ? { ...x, label: e.target.value } : x
+                                            )
+                                        )
+                                    }
+                                />
+                                <textarea
+                                    ref={autoGrow}
+                                    className="arc-note"
+                                    value={g.note}
+                                    placeholder="Description…"
+                                    rows={1}
+                                    onChange={(e) => {
+                                        mutateGroups((gs) =>
+                                            gs.map((x) =>
+                                                x.id === g.id ? { ...x, note: e.target.value } : x
+                                            )
+                                        );
+                                        autoGrow(e.target);
+                                    }}
+                                />
+                                {!assigningId && (
+                                    <div className="arc-actions">
+                                        {SWATCHES.map((c) => (
+                                            <button
+                                                key={c}
+                                                className={`swatch ${c} ${g.color === c ? "on" : ""}`}
+                                                title="Color"
+                                                onClick={() =>
+                                                    mutateGroups((gs) =>
+                                                        gs.map((x) =>
+                                                            x.id === g.id ? { ...x, color: c } : x
+                                                        )
+                                                    )
+                                                }
+                                            />
+                                        ))}
+                                        <button className="arc-edit" onClick={() => startRegroup(g.id)}>
+                                            regroup
+                                        </button>
+                                        <button
+                                            className="arc-edit danger"
+                                            onClick={() => deleteGroup(g.id)}
+                                        >
+                                            delete
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                            <span className={`arc-brace ${g.color}`} />
+                        </div>
+                    );
+                })}
                 {!loaded && !error && <p className="subtitle">Loading…</p>}
                 {error && <p className="subtitle">{error}</p>}
                 {loaded && nodes.length === 0 && (
@@ -561,6 +758,10 @@ export default function OutlineView({ project }: Props) {
                         )}
                         <div
                             className="outline-node-wrap"
+                            ref={(el) => {
+                                if (el) nodeEls.current.set(n.id, el);
+                                else nodeEls.current.delete(n.id);
+                            }}
                             onDragOver={(e) => {
                                 e.preventDefault();
                                 setDragOverKey(`card-${n.id}`);
@@ -568,6 +769,24 @@ export default function OutlineView({ project }: Props) {
                             onDragLeave={() => setDragOverKey(null)}
                             onDrop={() => dropOnCard(i)}
                         >
+                            {assigningId && (
+                                <button
+                                    className={`assign-overlay ${
+                                        groups.find((g) => g.id === assigningId)?.members.includes(n.id)
+                                            ? "member"
+                                            : ""
+                                    }`}
+                                    onClick={() => toggleMember(assigningId, n.id)}
+                                >
+                                    <span className="assign-check">
+                                        {groups
+                                            .find((g) => g.id === assigningId)
+                                            ?.members.includes(n.id)
+                                            ? "✓ in arc"
+                                            : "+ add to arc"}
+                                    </span>
+                                </button>
+                            )}
                             <div
                                 className={`outline-card ${n.kind} ${
                                     dragOverKey === `card-${n.id}` ? "drag-over" : ""
@@ -792,9 +1011,24 @@ export default function OutlineView({ project }: Props) {
               </div>
             </div>
             <div className="outline-toolbar">
-                <button onClick={addPoint}>+ Story Point</button>
-                <button onClick={() => addDocNode("scene")}>+ Scene</button>
-                <button onClick={() => addDocNode("chapter")}>+ Chapter</button>
+                {assigningId ? (
+                    <>
+                        <span className="grouping-hint">
+                            Click cards to add or remove them from this arc
+                        </span>
+                        <button className="primary" onClick={doneGrouping}>
+                            Done grouping
+                        </button>
+                        <button onClick={cancelGrouping}>Cancel</button>
+                    </>
+                ) : (
+                    <>
+                        <button onClick={addPoint}>+ Story Point</button>
+                        <button onClick={() => addDocNode("scene")}>+ Scene</button>
+                        <button onClick={() => addDocNode("chapter")}>+ Chapter</button>
+                        <button onClick={addGroup}>+ Plot Arc</button>
+                    </>
+                )}
                 <span className={`save-status ${saveState}`}>
                     {saveState === "unsaved" && "Saving…"}
                     {saveState === "saved" && "Saved"}

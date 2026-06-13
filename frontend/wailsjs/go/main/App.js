@@ -26,6 +26,10 @@ export function ListCharacters(arg1) {
   return window['go']['main']['App']['ListCharacters'](arg1);
 }
 
+export function ListParts(arg1) {
+  return window['go']['main']['App']['ListParts'](arg1);
+}
+
 export function ListScenes(arg1) {
   return window['go']['main']['App']['ListScenes'](arg1);
 }
@@ -76,6 +80,10 @@ export function SaveProjectMeta(arg1, arg2) {
 
 export function SetManuscriptOrder(arg1, arg2, arg3) {
   return window['go']['main']['App']['SetManuscriptOrder'](arg1, arg2, arg3);
+}
+
+export function SetParts(arg1, arg2) {
+  return window['go']['main']['App']['SetParts'](arg1, arg2);
 }
 
 export function WriteChapter(arg1, arg2, arg3) {

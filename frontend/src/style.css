@@ -136,6 +136,7 @@ button.primary:hover {
 /* --- Workspace layout --- */
 
 .workspace {
+  position: relative;
   height: 100%;
   display: flex;
 }
@@ -150,13 +151,80 @@ button.primary:hover {
   padding: 16px 10px;
 }
 
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .sidebar .project-name {
+  flex: 1;
   font-family: var(--font-serif);
   font-size: 16px;
   padding: 6px 12px 18px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Collapse chevrons for the sidebar and chapter list. */
+.collapse-btn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-faint);
+  font-size: 15px;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.collapse-btn:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+}
+
+/* Collapsed sidebar becomes a thin in-flow rail so panels never overlap. */
+.sidebar-rail {
+  flex-shrink: 0;
+  width: 44px;
+  background: var(--bg-raised);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 16px;
+}
+
+.sidebar-reopen {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 15px;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.sidebar-reopen:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+}
+
+/* Floating button to bring the collapsed chapter list back. */
+.list-reopen {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 5;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 14px;
+  padding: 4px 9px;
+  border-radius: 6px;
+}
+
+.list-reopen:hover {
+  color: var(--text);
 }
 
 .sidebar nav {
@@ -313,6 +381,7 @@ button.primary:hover {
 }
 
 .editor-pane {
+  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -374,6 +443,15 @@ button.primary:hover {
 
 /* --- Manuscript sidebar groups --- */
 
+.list-top {
+  display: flex;
+  align-items: center;
+}
+
+.list-top .list-heading {
+  flex: 1;
+}
+
 .list-heading {
   font-size: 11px;
   text-transform: uppercase;
@@ -386,6 +464,57 @@ button.primary:hover {
   font-size: 11px;
   color: var(--text-faint);
   padding: 0 12px 6px;
+}
+
+/* Part / act divider rows in the chapter list. */
+.part-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 10px 4px 2px;
+}
+
+.part-row::before {
+  content: "";
+  flex-shrink: 0;
+  width: 10px;
+  height: 1px;
+  background: var(--accent-dim);
+}
+
+.part-label {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  padding: 2px 4px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+}
+
+.part-label:focus {
+  border: none;
+}
+
+.part-delete {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  padding: 0 4px;
+  font-size: 11px;
+  color: var(--text-faint);
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.part-row:hover .part-delete {
+  opacity: 1;
+}
+
+.part-delete:hover {
+  color: var(--danger);
 }
 
 .doc-row {
@@ -467,8 +596,10 @@ button.primary:hover {
   padding: 48px 0 24px;
 }
 
-/* The spine is a centered column; arms overflow into the space to its right. */
+/* The spine is a centered column; arms overflow into the space to its right,
+   plot-arc braces into the space to its left. position:relative anchors both. */
 .outline-spine {
+  position: relative;
   width: 440px;
   margin: 0 auto;
 }
@@ -520,6 +651,151 @@ button.primary:hover {
 
 .outline-node-wrap {
   position: relative;
+}
+
+/* Overarching plot points: a labeled curly brace down the left of the spine. */
+.plot-arc {
+  position: absolute;
+  right: calc(100% + 40px);
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+
+.arc-side {
+  width: 150px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  pointer-events: auto;
+}
+
+.arc-side.active,
+.arc-side:hover {
+  background: var(--bg-raised);
+}
+
+.arc-title {
+  background: transparent;
+  border: none;
+  padding: 0;
+  text-align: right;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+
+.arc-title:focus {
+  border: none;
+}
+
+.arc-title.dark { color: #6f7d57; }
+.arc-title.green { color: #8a9163; }
+.arc-title.orange { color: var(--accent); }
+
+.arc-note {
+  background: transparent;
+  border: none;
+  padding: 0;
+  resize: none;
+  overflow: hidden;
+  text-align: right;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-faint);
+}
+
+.arc-note:focus {
+  border: none;
+}
+
+.arc-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.plot-arc:hover .arc-actions {
+  opacity: 1;
+}
+
+.arc-edit {
+  background: none;
+  border: none;
+  padding: 0 4px;
+  font-size: 10px;
+  color: var(--text-faint);
+}
+
+.arc-edit:hover {
+  color: var(--accent);
+}
+
+.arc-edit.danger:hover {
+  color: var(--danger);
+}
+
+.arc-brace {
+  width: 9px;
+  height: 100%;
+  margin-left: 6px;
+  border: 2px solid var(--accent-dim);
+  border-right: none;
+  border-radius: 9px 0 0 9px;
+  position: relative;
+}
+
+.arc-brace::after {
+  content: "";
+  position: absolute;
+  right: -6px;
+  top: 50%;
+  width: 6px;
+  height: 2px;
+  transform: translateY(-50%);
+  background: var(--accent-dim);
+}
+
+.arc-brace.dark { border-color: #3a452e; }
+.arc-brace.dark::after { background: #3a452e; }
+.arc-brace.green { border-color: #5e6342; }
+.arc-brace.green::after { background: #5e6342; }
+.arc-brace.orange { border-color: var(--accent); }
+.arc-brace.orange::after { background: var(--accent); }
+
+/* Click-to-assign overlay shown on each card while grouping. */
+.assign-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  background: rgba(17, 17, 19, 0.55);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.assign-overlay .assign-check {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.assign-overlay.member {
+  background: rgba(94, 99, 66, 0.28);
+  border-color: var(--accent-dim);
+}
+
+.assign-overlay.member .assign-check {
+  color: var(--accent);
 }
 
 .outline-card {
@@ -790,6 +1066,11 @@ button.primary:hover {
 .outline-toolbar .save-status {
   position: absolute;
   right: 20px;
+}
+
+.grouping-hint {
+  font-size: 12px;
+  color: var(--accent-dim);
 }
 
 .outline-editor-bar {

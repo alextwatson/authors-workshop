@@ -24,6 +24,16 @@ export interface OutlineNode {
     arms: OutlineArm[];
 }
 
+// An overarching plot point: a labeled curly brace, drawn to the left of the
+// spine, that groups a set of nodes (by id).
+export interface OutlineGroup {
+    id: string;
+    label: string;
+    note: string;
+    color: TagColor;
+    members: string[];
+}
+
 const TAG_COLORS: TagColor[] = ["", "dark", "green", "orange"];
 
 function normalizeArm(raw: any): OutlineArm | null {
@@ -53,6 +63,17 @@ function normalizeNode(raw: any): OutlineNode | null {
     };
 }
 
+function normalizeGroup(raw: any): OutlineGroup | null {
+    if (!raw || typeof raw.id !== "string") return null;
+    return {
+        id: raw.id,
+        label: typeof raw.label === "string" ? raw.label : "",
+        note: typeof raw.note === "string" ? raw.note : "",
+        color: TAG_COLORS.includes(raw.color) ? raw.color : "green",
+        members: Array.isArray(raw.members) ? raw.members.filter((m: any) => typeof m === "string") : [],
+    };
+}
+
 export function parseOutline(json: string): OutlineNode[] {
     try {
         const data = JSON.parse(json);
@@ -67,6 +88,20 @@ export function parseOutline(json: string): OutlineNode[] {
     return [];
 }
 
-export function serializeOutline(nodes: OutlineNode[]): string {
-    return JSON.stringify({ version: 1, nodes }, null, 2) + "\n";
+export function parseGroups(json: string): OutlineGroup[] {
+    try {
+        const data = JSON.parse(json);
+        if (Array.isArray(data?.groups)) {
+            return data.groups
+                .map(normalizeGroup)
+                .filter((g: OutlineGroup | null): g is OutlineGroup => g !== null);
+        }
+    } catch {
+        // fall through to empty
+    }
+    return [];
+}
+
+export function serializeOutline(nodes: OutlineNode[], groups: OutlineGroup[] = []): string {
+    return JSON.stringify({ version: 1, nodes, groups }, null, 2) + "\n";
 }

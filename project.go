@@ -152,12 +152,22 @@ func countWords(content string) int {
 	return len(strings.Fields(content))
 }
 
+// ManuscriptPart is a labeled Part/Act divider shown above the chapter it
+// begins. Anchoring to a chapter filename (rather than an index) keeps the
+// heading glued to its starting chapter across reordering.
+type ManuscriptPart struct {
+	ID     string `json:"id"`
+	Label  string `json:"label"`
+	Before string `json:"before"`
+}
+
 // manuscriptOrder is the content of manuscript/order.json — the user's
 // chosen ordering for chapters and scenes. Files not listed sort after
 // the listed ones, alphabetically.
 type manuscriptOrder struct {
-	Chapters []string `json:"chapters"`
-	Scenes   []string `json:"scenes"`
+	Chapters []string         `json:"chapters"`
+	Scenes   []string         `json:"scenes"`
+	Parts    []ManuscriptPart `json:"parts"`
 }
 
 const orderFile = "order.json"

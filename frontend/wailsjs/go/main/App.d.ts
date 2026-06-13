@@ -14,6 +14,8 @@ export function ListChapters(arg1:string):Promise<Array<main.ChapterInfo>>;
 
 export function ListCharacters(arg1:string):Promise<Array<string>>;
 
+export function ListParts(arg1:string):Promise<Array<main.ManuscriptPart>>;
+
 export function ListScenes(arg1:string):Promise<Array<main.ChapterInfo>>;
 
 export function ListTrash():Promise<Array<main.TrashItem>>;
@@ -39,6 +41,8 @@ export function RestoreTrashItem(arg1:string):Promise<string>;
 export function SaveProjectMeta(arg1:string,arg2:main.ProjectMeta):Promise<main.ProjectMeta>;
 
 export function SetManuscriptOrder(arg1:string,arg2:string,arg3:Array<string>):Promise<void>;
+
+export function SetParts(arg1:string,arg2:Array<main.ManuscriptPart>):Promise<void>;
 
 export function WriteChapter(arg1:string,arg2:string,arg3:string):Promise<void>;
 

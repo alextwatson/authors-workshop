@@ -152,6 +152,21 @@ func (a *App) SetManuscriptOrder(projectPath, kind string, files []string) error
 	return writeJSON(filepath.Join(projectPath, manuscriptDir, orderFile), o)
 }
 
+func (a *App) ListParts(projectPath string) ([]ManuscriptPart, error) {
+	parts := readManuscriptOrder(projectPath).Parts
+	if parts == nil {
+		parts = []ManuscriptPart{}
+	}
+	return parts, nil
+}
+
+// SetParts persists the Part/Act dividers shown in the chapter list.
+func (a *App) SetParts(projectPath string, parts []ManuscriptPart) error {
+	o := readManuscriptOrder(projectPath)
+	o.Parts = parts
+	return writeJSON(filepath.Join(projectPath, manuscriptDir, orderFile), o)
+}
+
 func (a *App) ReadChapter(projectPath, filename string) (string, error) {
 	name, err := safeName(filename)
 	if err != nil {

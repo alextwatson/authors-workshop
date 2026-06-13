@@ -16,6 +16,22 @@ export namespace main {
 	        this.wordCount = source["wordCount"];
 	    }
 	}
+	export class ManuscriptPart {
+	    id: string;
+	    label: string;
+	    before: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ManuscriptPart(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.label = source["label"];
+	        this.before = source["before"];
+	    }
+	}
 	export class ProjectMeta {
 	    name: string;
 	    author: string;

@@ -12,6 +12,7 @@ import TrashView from "./components/views/TrashView";
 export default function App() {
     const [project, setProject] = useState<main.Project | null>(null);
     const [section, setSection] = useState<Section>("manuscript");
+    const [sidebarOpen, setSidebarOpen] = useState(true);
 
     if (!project) {
         return <StartupScreen onProjectReady={(p) => {
@@ -22,15 +23,28 @@ export default function App() {
 
     return (
         <div className="workspace">
-            <Sidebar
-                projectName={project.meta.name}
-                active={section}
-                onNavigate={setSection}
-                onCloseProject={() => setProject(null)}
-            />
+            {sidebarOpen ? (
+                <Sidebar
+                    projectName={project.meta.name}
+                    active={section}
+                    onNavigate={setSection}
+                    onCloseProject={() => setProject(null)}
+                    onCollapse={() => setSidebarOpen(false)}
+                />
+            ) : (
+                <div className="sidebar-rail">
+                    <button
+                        className="sidebar-reopen"
+                        title="Show menu"
+                        onClick={() => setSidebarOpen(true)}
+                    >
+                        ☰
+                    </button>
+                </div>
+            )}
             <main className="main">
                 {section === "manuscript" ? (
-                    <ManuscriptView project={project} />
+                    <ManuscriptView project={project} chromeVisible={sidebarOpen} />
                 ) : section === "outline" ? (
                     <OutlineView project={project} />
                 ) : (
