@@ -1,17 +1,23 @@
 import { useEffect, useState } from "react";
 import {
     DeleteCharacter,
+    ListChapters,
     ListCharacters,
+    ListScenes,
     ReadCharacter,
+    ReadOutline,
     WriteCharacter,
 } from "../../../wailsjs/go/main/App";
 import { main } from "../../../wailsjs/go/models";
 import { emptyCharacter, parseCharacter, serializeCharacter } from "../../characters";
 import { nextNumberedJson } from "../../docnames";
-import CharacterEditor from "../CharacterEditor";
+import { parseOutline } from "../../outline";
+import { Section } from "../Sidebar";
+import CharacterEditor, { OutlineMoment } from "../CharacterEditor";
 
 interface Props {
     project: main.Project;
+    onNavigate: (section: Section, focusId?: string | null) => void;
 }
 
 type CharRef = { filename: string; name: string };
@@ -20,11 +26,36 @@ function displayName(name: string, filename: string): string {
     return name.trim() || filename.replace(/\.json$/, "");
 }
 
-export default function CharactersView({ project }: Props) {
+export default function CharactersView({ project, onNavigate }: Props) {
     const [chars, setChars] = useState<CharRef[]>([]);
+    const [moments, setMoments] = useState<OutlineMoment[]>([]);
     const [active, setActive] = useState<string | null>(null);
     const [listOpen, setListOpen] = useState(true);
     const [error, setError] = useState("");
+
+    // Load the outline's objects so arc beats can connect to them. Doc nodes
+    // borrow their title from the manuscript file lists.
+    useEffect(() => {
+        Promise.all([
+            ReadOutline(project.path),
+            ListScenes(project.path),
+            ListChapters(project.path),
+        ])
+            .then(([json, sceneList, chapterList]) => {
+                const titles: Record<string, string> = {};
+                for (const d of [...sceneList, ...chapterList]) titles[d.filename] = d.title;
+                const list = parseOutline(json).map((n) => {
+                    const glyph = n.kind === "scene" ? "◇" : n.kind === "chapter" ? "§" : "•";
+                    const label =
+                        n.kind === "point"
+                            ? n.title || "Story point"
+                            : titles[n.file] || n.title || n.file;
+                    return { id: n.id, label: `${glyph} ${label}` };
+                });
+                setMoments(list);
+            })
+            .catch(() => setMoments([]));
+    }, [project.path]);
 
     useEffect(() => {
         ListCharacters(project.path)
@@ -129,6 +160,8 @@ export default function CharactersView({ project }: Props) {
                         write={(content) => WriteCharacter(project.path, active, content)}
                         onSaved={(info) => onSaved(active, info.name)}
                         fallbackName={active.replace(/\.json$/, "")}
+                        outlineMoments={moments}
+                        onJumpToOutline={(id) => onNavigate("outline", id)}
                     />
                 ) : (
                     <div className="view">

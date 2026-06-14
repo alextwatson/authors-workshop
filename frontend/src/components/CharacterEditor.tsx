@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
+    ArcPoint,
     Character,
     CharAttr,
     DEFAULT_SCALE_MAX,
@@ -10,11 +11,19 @@ import {
 } from "../characters";
 import { newId } from "../docnames";
 
+export interface OutlineMoment {
+    id: string;
+    label: string;
+}
+
 interface Props {
     read: () => Promise<string>;
     write: (content: string) => Promise<void>;
     onSaved?: (info: { name: string }) => void;
     fallbackName: string;
+    // Outline objects this character's arc points can connect to.
+    outlineMoments: OutlineMoment[];
+    onJumpToOutline: (outlineId: string) => void;
 }
 
 type SaveState = "idle" | "unsaved" | "saved" | "error";
@@ -24,7 +33,14 @@ const AUTOSAVE_DELAY_MS = 800;
 // A structured character sheet editor backed by JSON. Reuses DocEditor's
 // debounced, flush-on-unmount autosave mechanics. Remount (via key) to switch
 // characters.
-export default function CharacterEditor({ read, write, onSaved, fallbackName }: Props) {
+export default function CharacterEditor({
+    read,
+    write,
+    onSaved,
+    fallbackName,
+    outlineMoments,
+    onJumpToOutline,
+}: Props) {
     const [loaded, setLoaded] = useState(false);
     const [character, setCharacter] = useState<Character>(emptyCharacter);
     const [saveState, setSaveState] = useState<SaveState>("idle");
@@ -105,6 +121,32 @@ export default function CharacterEditor({ read, write, onSaved, fallbackName }: 
 
     function removeAttr(id: string) {
         update({ attrs: charRef.current.attrs.filter((a) => a.id !== id) });
+    }
+
+    function addArcPoint() {
+        update({
+            arc: [...charRef.current.arc, { id: newId(), text: "", outlineId: "" }],
+        });
+    }
+
+    function patchArcPoint(id: string, patch: Partial<ArcPoint>) {
+        update({
+            arc: charRef.current.arc.map((p) => (p.id === id ? { ...p, ...patch } : p)),
+        });
+    }
+
+    function removeArcPoint(id: string) {
+        update({ arc: charRef.current.arc.filter((p) => p.id !== id) });
+    }
+
+    // Swap a point with its neighbour to reorder the emotional sequence.
+    function moveArcPoint(id: string, dir: -1 | 1) {
+        const arc = [...charRef.current.arc];
+        const i = arc.findIndex((p) => p.id === id);
+        const j = i + dir;
+        if (i < 0 || j < 0 || j >= arc.length) return;
+        [arc[i], arc[j]] = [arc[j], arc[i]];
+        update({ arc });
     }
 
     if (error && !loaded) {
@@ -229,6 +271,79 @@ export default function CharacterEditor({ read, write, onSaved, fallbackName }: 
                 ))}
                 <button className="attr-add" onClick={addAttr}>
                     + Add Attribute
+                </button>
+            </div>
+
+            <div className="arc-section">
+                <div className="attrs-heading">Emotional Arc</div>
+                <p className="arc-section-hint">
+                    A few words per beat. Optionally connect a beat to a moment in your outline.
+                </p>
+                {character.arc.map((point, i) => {
+                    const linked = outlineMoments.find((m) => m.id === point.outlineId);
+                    return (
+                        <div className="arc-point-row" key={point.id}>
+                            <div className="arc-point-move">
+                                <button
+                                    title="Move up"
+                                    disabled={i === 0}
+                                    onClick={() => moveArcPoint(point.id, -1)}
+                                >
+                                    ↑
+                                </button>
+                                <button
+                                    title="Move down"
+                                    disabled={i === character.arc.length - 1}
+                                    onClick={() => moveArcPoint(point.id, 1)}
+                                >
+                                    ↓
+                                </button>
+                            </div>
+                            <input
+                                className="arc-point-text"
+                                value={point.text}
+                                placeholder="e.g. hopeful"
+                                onChange={(e) => patchArcPoint(point.id, { text: e.target.value })}
+                                spellCheck
+                            />
+                            <select
+                                className="arc-point-link"
+                                value={point.outlineId}
+                                onChange={(e) =>
+                                    patchArcPoint(point.id, { outlineId: e.target.value })
+                                }
+                            >
+                                <option value="">(link a moment)</option>
+                                {outlineMoments.map((m) => (
+                                    <option key={m.id} value={m.id}>
+                                        {m.label}
+                                    </option>
+                                ))}
+                                {point.outlineId && !linked && (
+                                    <option value={point.outlineId}>(missing moment)</option>
+                                )}
+                            </select>
+                            {point.outlineId && linked && (
+                                <button
+                                    className="arc-point-jump"
+                                    title="Go to this moment in the Outline"
+                                    onClick={() => onJumpToOutline(point.outlineId)}
+                                >
+                                    →
+                                </button>
+                            )}
+                            <button
+                                className="attr-remove"
+                                title="Remove beat"
+                                onClick={() => removeArcPoint(point.id)}
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    );
+                })}
+                <button className="attr-add" onClick={addArcPoint}>
+                    + Add Beat
                 </button>
             </div>
 

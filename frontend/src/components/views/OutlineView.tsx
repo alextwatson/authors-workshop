@@ -15,27 +15,23 @@ import {
     WriteScene,
 } from "../../../wailsjs/go/main/App";
 import { main } from "../../../wailsjs/go/models";
-import { Section } from "../Sidebar";
 import DocEditor, { countWords, parseDoc } from "../DocEditor";
 import { newId, nextNumberedFilename } from "../../docnames";
 import {
     DocKind,
     OutlineGroup,
     OutlineNode,
-    Scale,
     TagColor,
     parseGroups,
     parseOutline,
-    parseScales,
     serializeOutline,
 } from "../../outline";
 
 interface Props {
     project: main.Project;
-    // When navigated from the Emotional Arc, the outline-object id to scroll to
-    // and briefly highlight.
+    // When navigated from a character's emotional arc, the outline-object id to
+    // scroll to and briefly highlight.
     focusId?: string | null;
-    onNavigate?: (section: Section, focusId?: string | null) => void;
 }
 
 type DocRef = { kind: DocKind; file: string };
@@ -94,14 +90,13 @@ function normalizeNodes(ns: OutlineNode[]): OutlineNode[] {
                 tagLabel: "",
                 file: a.file,
                 arms: [],
-                emotions: [],
             });
         }
     }
     return out;
 }
 
-export default function OutlineView({ project, focusId, onNavigate }: Props) {
+export default function OutlineView({ project, focusId }: Props) {
     const [nodes, setNodes] = useState<OutlineNode[]>([]);
     const [groups, setGroups] = useState<OutlineGroup[]>([]);
     const [scenes, setScenes] = useState<main.ChapterInfo[]>([]);
@@ -116,9 +111,6 @@ export default function OutlineView({ project, focusId, onNavigate }: Props) {
 
     const nodesRef = useRef<OutlineNode[]>([]);
     const groupsRef = useRef<OutlineGroup[]>([]);
-    // Scales are authored in the Arc view but live in outline.json, so preserve
-    // them across this view's autosaves rather than dropping them.
-    const scalesRef = useRef<Scale[]>([]);
     const assignSnapshot = useRef<OutlineGroup[] | null>(null);
     const dirtyRef = useRef(false);
     const saveTimer = useRef<number | undefined>(undefined);
@@ -142,7 +134,6 @@ export default function OutlineView({ project, focusId, onNavigate }: Props) {
             .then(([json, sceneList, chapterList, trashList]) => {
                 const original = parseOutline(json);
                 const originalGroups = parseGroups(json);
-                scalesRef.current = parseScales(json);
                 let parsed = original;
                 const inList = (kind: DocKind, file: string) =>
                     (kind === "scene" ? sceneList : chapterList).some((d) => d.filename === file);
@@ -175,8 +166,8 @@ export default function OutlineView({ project, focusId, onNavigate }: Props) {
                     .map((g) => ({ ...g, members: g.members.filter((m) => liveIds.has(m)) }))
                     .filter((g) => g.members.length > 0);
                 const changed =
-                    serializeOutline(parsed, liveGroups, scalesRef.current) !==
-                    serializeOutline(original, originalGroups, scalesRef.current);
+                    serializeOutline(parsed, liveGroups) !==
+                    serializeOutline(original, originalGroups);
                 nodesRef.current = parsed;
                 groupsRef.current = liveGroups;
                 setNodes(parsed);
@@ -186,10 +177,7 @@ export default function OutlineView({ project, focusId, onNavigate }: Props) {
                 setTrashItems(trashList);
                 setLoaded(true);
                 if (changed) {
-                    WriteOutline(
-                        project.path,
-                        serializeOutline(parsed, liveGroups, scalesRef.current)
-                    ).catch(() => {});
+                    WriteOutline(project.path, serializeOutline(parsed, liveGroups)).catch(() => {});
                 }
             })
             .catch((err) => setError(String(err)));
@@ -198,7 +186,7 @@ export default function OutlineView({ project, focusId, onNavigate }: Props) {
             if (dirtyRef.current) {
                 WriteOutline(
                     project.path,
-                    serializeOutline(nodesRef.current, groupsRef.current, scalesRef.current)
+                    serializeOutline(nodesRef.current, groupsRef.current)
                 ).catch(() => {});
             }
         };
@@ -212,7 +200,7 @@ export default function OutlineView({ project, focusId, onNavigate }: Props) {
             try {
                 await WriteOutline(
                     project.path,
-                    serializeOutline(nodesRef.current, groupsRef.current, scalesRef.current)
+                    serializeOutline(nodesRef.current, groupsRef.current)
                 );
                 dirtyRef.current = false;
                 setSaveState("saved");
@@ -250,10 +238,7 @@ export default function OutlineView({ project, focusId, onNavigate }: Props) {
         const id = newId();
         // Snapshot the pre-add state so Cancel removes the new arc entirely.
         assignSnapshot.current = groupsRef.current;
-        mutateGroups((gs) => [
-            ...gs,
-            { id, label: "Plot arc", note: "", color: "green", members: [], emotions: [] },
-        ]);
+        mutateGroups((gs) => [...gs, { id, label: "Plot arc", note: "", color: "green", members: [] }]);
         setAssigningId(id);
     }
 
@@ -331,8 +316,8 @@ export default function OutlineView({ project, focusId, onNavigate }: Props) {
         return () => ro.disconnect();
     }, [nodes, groups, editing]);
 
-    // Arriving from the Emotional Arc: scroll the focused card into view and
-    // flash it. Runs once the board has rendered so the element exists.
+    // Arriving from a character's emotional arc: scroll the linked card into
+    // view and flash it. Runs once the board has rendered so the element exists.
     useEffect(() => {
         if (!loaded || !focusId) return;
         const el = nodeEls.current.get(focusId);
@@ -379,7 +364,7 @@ export default function OutlineView({ project, focusId, onNavigate }: Props) {
     function addPoint() {
         mutate((ns) => [
             ...ns,
-            { id: newId(), kind: "point", title: "", note: "", tag: "", tagLabel: "", file: "", arms: [], emotions: [] },
+            { id: newId(), kind: "point", title: "", note: "", tag: "", tagLabel: "", file: "", arms: [] },
         ]);
     }
 
@@ -388,7 +373,7 @@ export default function OutlineView({ project, focusId, onNavigate }: Props) {
             const file = await createDoc(kind, "", "");
             mutate((ns) => [
                 ...ns,
-                { id: newId(), kind, title: "", note: "", tag: "", tagLabel: "", file, arms: [], emotions: [] },
+                { id: newId(), kind, title: "", note: "", tag: "", tagLabel: "", file, arms: [] },
             ]);
             setEditing({ kind, file });
         } catch (err) {
@@ -568,7 +553,6 @@ export default function OutlineView({ project, focusId, onNavigate }: Props) {
             tagLabel: "",
             file: arm.file,
             arms: [],
-            emotions: [],
         };
         mutate((ns) => {
             const next = ns.map((n) =>
@@ -803,15 +787,6 @@ export default function OutlineView({ project, focusId, onNavigate }: Props) {
                             onDragLeave={() => setDragOverKey(null)}
                             onDrop={() => dropOnCard(i)}
                         >
-                            {onNavigate && n.emotions.length > 0 && (
-                                <button
-                                    className="emotion-badge"
-                                    title="View in Emotional Arc"
-                                    onClick={() => onNavigate("arc", n.id)}
-                                >
-                                    ♥ {n.emotions.length}
-                                </button>
-                            )}
                             {assigningId && (
                                 <button
                                     className={`assign-overlay ${

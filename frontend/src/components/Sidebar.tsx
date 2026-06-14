@@ -1,7 +1,6 @@
 export type Section =
     | "manuscript"
     | "outline"
-    | "arc"
     | "characters"
     | "worldbuilding"
     | "settings"
@@ -10,7 +9,6 @@ export type Section =
 const NAV_ITEMS: { key: Section; label: string }[] = [
     { key: "manuscript", label: "Manuscript" },
     { key: "outline", label: "Outline" },
-    { key: "arc", label: "Emotional Arc" },
     { key: "characters", label: "Characters" },
     { key: "worldbuilding", label: "World Building" },
 ];

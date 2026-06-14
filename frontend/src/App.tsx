@@ -4,7 +4,6 @@ import StartupScreen from "./components/StartupScreen";
 import Sidebar, { Section } from "./components/Sidebar";
 import ManuscriptView from "./components/views/ManuscriptView";
 import OutlineView from "./components/views/OutlineView";
-import ArcView from "./components/views/ArcView";
 import CharactersView from "./components/views/CharactersView";
 import WorldBuildingView from "./components/views/WorldBuildingView";
 import ProjectSettingsView from "./components/views/ProjectSettingsView";
@@ -55,16 +54,12 @@ export default function App() {
                 {section === "manuscript" ? (
                     <ManuscriptView project={project} chromeVisible={sidebarOpen} />
                 ) : section === "outline" ? (
-                    <OutlineView
-                        project={project}
-                        focusId={focusId}
-                        onNavigate={navigate}
-                    />
-                ) : section === "arc" ? (
-                    <ArcView project={project} focusId={focusId} onNavigate={navigate} />
+                    <OutlineView project={project} focusId={focusId} />
                 ) : (
                     <div className="view">
-                        {section === "characters" && <CharactersView project={project} />}
+                        {section === "characters" && (
+                            <CharactersView project={project} onNavigate={navigate} />
+                        )}
                         {section === "worldbuilding" && <WorldBuildingView project={project} />}
                         {section === "trash" && <TrashView />}
                         {section === "settings" && (

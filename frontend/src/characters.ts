@@ -17,11 +17,20 @@ export interface CharAttr {
     max: number;
 }
 
+// One beat in a character's emotional arc: a couple of words, optionally
+// connected to an outline object (story point / scene / chapter) by its id.
+export interface ArcPoint {
+    id: string;
+    text: string;
+    outlineId: string;
+}
+
 export interface Character {
     name: string;
     role: string;
     bio: string;
     attrs: CharAttr[];
+    arc: ArcPoint[];
 }
 
 export const DEFAULT_SCALE_MIN = 1;
@@ -42,6 +51,15 @@ function normalizeAttr(raw: any): CharAttr | null {
     };
 }
 
+function normalizeArcPoint(raw: any): ArcPoint | null {
+    if (!raw || typeof raw.id !== "string") return null;
+    return {
+        id: raw.id,
+        text: typeof raw.text === "string" ? raw.text : "",
+        outlineId: typeof raw.outlineId === "string" ? raw.outlineId : "",
+    };
+}
+
 // Parse a character JSON string, tolerating empty/malformed content by falling
 // back to an empty sheet. Mirrors the forgiving parse pattern in outline.ts.
 export function parseCharacter(json: string): Character {
@@ -57,12 +75,17 @@ export function parseCharacter(json: string): Character {
                           .map(normalizeAttr)
                           .filter((a: CharAttr | null): a is CharAttr => a !== null)
                     : [],
+                arc: Array.isArray(data.arc)
+                    ? data.arc
+                          .map(normalizeArcPoint)
+                          .filter((p: ArcPoint | null): p is ArcPoint => p !== null)
+                    : [],
             };
         }
     } catch {
         // fall through to empty sheet
     }
-    return { name: "", role: "", bio: "", attrs: [] };
+    return emptyCharacter();
 }
 
 export function serializeCharacter(c: Character): string {
@@ -70,5 +93,5 @@ export function serializeCharacter(c: Character): string {
 }
 
 export function emptyCharacter(): Character {
-    return { name: "", role: "", bio: "", attrs: [] };
+    return { name: "", role: "", bio: "", attrs: [], arc: [] };
 }

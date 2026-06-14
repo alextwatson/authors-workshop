@@ -1323,227 +1323,64 @@ button.primary:hover {
   flex: 1;
 }
 
-/* --- Emotional Arc --- */
+/* --- Character emotional arc --- */
 
-.arc {
-  padding: 48px 56px;
-  flex: 1;
-}
-
-.arc-head {
+.arc-section {
+  margin-top: 28px;
   display: flex;
-  align-items: baseline;
-  gap: 16px;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.arc-head h2 {
-  margin: 0;
-}
-
-.arc-grid-scroll {
-  margin-top: 20px;
-  overflow-x: auto;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-}
-
-.arc-grid {
-  border-collapse: collapse;
+.arc-section-hint {
+  margin: 0 0 2px;
   font-size: 13px;
-}
-
-.arc-grid th,
-.arc-grid td {
-  border: 1px solid var(--border);
-  padding: 0;
-}
-
-.arc-corner {
-  background: var(--bg-raised);
-  padding: 8px 12px;
-  text-align: left;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   color: var(--text-faint);
-  position: sticky;
-  left: 0;
-  z-index: 2;
 }
 
-.arc-arc-cell {
-  padding: 4px !important;
+.arc-point-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.arc-point-move {
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+}
+
+.arc-point-move button {
+  background: none;
+  border: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0 2px;
+}
+
+.arc-point-move button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.arc-point-text {
+  flex: 1;
+  padding: 6px 8px;
   background: var(--bg);
-}
-
-.arc-arc-chip {
-  width: 100%;
-  border: 1px solid var(--accent-dim);
-  border-radius: 4px;
-  background: var(--bg-hover);
-  color: var(--text);
-  font-size: 11px;
-  padding: 3px 6px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.arc-arc-chip.orange {
-  border-color: var(--accent);
-}
-
-.arc-obj {
-  background: var(--bg-raised);
-  vertical-align: bottom;
-}
-
-.arc-obj.selected,
-.arc-cell.selected {
-  background: var(--bg-hover);
-}
-
-.arc-obj-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: none;
-  border: none;
-  color: var(--text);
-  cursor: pointer;
-  padding: 8px 12px;
-  max-width: 180px;
-}
-
-.arc-obj-glyph {
-  color: var(--text-faint);
-}
-
-.arc-obj-title {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.arc-char {
-  background: var(--bg-raised);
-  padding: 8px 12px;
-  text-align: left;
-  white-space: nowrap;
-  position: sticky;
-  left: 0;
-  z-index: 1;
-  color: var(--text);
-  font-weight: 500;
-}
-
-.arc-cell {
-  vertical-align: bottom;
-  min-width: 90px;
-  height: 64px;
-  padding: 6px !important;
-  cursor: pointer;
-}
-
-.arc-cell-empty {
-  color: var(--text-faint);
-  display: block;
-  text-align: center;
-}
-
-.arc-cell-states {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.arc-state {
-  display: flex;
-  align-items: flex-end;
-  gap: 6px;
-}
-
-.arc-bar-wrap {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-}
-
-.arc-bar {
-  width: 8px;
-  background: var(--accent);
-  border-radius: 2px;
-}
-
-.arc-bar-num {
-  font-size: 10px;
-  color: var(--text-dim);
-}
-
-.arc-state-text {
-  color: var(--text);
-}
-
-.arc-editor {
-  margin-top: 20px;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-raised);
-  padding: 16px;
+  border-radius: 6px;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--text);
 }
 
-.arc-editor-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.arc-point-text:focus {
+  border-color: var(--accent-dim);
+  outline: none;
 }
 
-.arc-editor-title {
-  font-weight: 500;
-  flex: 1;
-}
-
-.arc-link {
-  background: none;
-  border: none;
-  color: var(--accent);
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.arc-editor-close {
-  background: none;
-  border: none;
-  color: var(--text-faint);
-  cursor: pointer;
-}
-
-.arc-emotions {
-  margin-top: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.arc-empty-hint {
-  color: var(--text-faint);
-  font-size: 13px;
-  margin: 0;
-}
-
-.arc-emotion-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.arc-em-text {
-  flex: 1;
-}
-
-.arc-emotion-row select,
-.arc-emotion-row input,
-.arc-scale-row input {
+.arc-point-link {
   padding: 6px 8px;
   background: var(--bg);
   border: 1px solid var(--border);
@@ -1551,102 +1388,16 @@ button.primary:hover {
   font-family: var(--font-ui);
   font-size: 13px;
   color: var(--text);
+  max-width: 200px;
 }
 
-.arc-emotion-row input:focus,
-.arc-scale-row input:focus {
-  border-color: var(--accent-dim);
-  outline: none;
-}
-
-.arc-em-value {
-  width: 64px;
-}
-
-.arc-em-remove {
+.arc-point-jump {
   background: none;
-  border: none;
-  color: var(--text-faint);
-  cursor: pointer;
-}
-
-.arc-em-remove:hover {
-  color: var(--danger);
-}
-
-.arc-add {
-  align-self: flex-start;
-  background: none;
-  border: 1px dashed var(--border);
-  border-radius: 6px;
-  color: var(--text-dim);
-  cursor: pointer;
-  padding: 8px 12px;
-  font-size: 13px;
-}
-
-.arc-add:hover {
-  border-color: var(--accent-dim);
-  color: var(--text);
-}
-
-.arc-scales {
-  margin-top: 28px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-width: 520px;
-}
-
-.arc-scales-head {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-faint);
-}
-
-.arc-scales-hint {
-  margin: 0;
-  font-size: 13px;
-  color: var(--text-faint);
-}
-
-.arc-scale-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 12px;
-  color: var(--text-faint);
-}
-
-.arc-scale-row label {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.arc-scale-label {
-  flex: 1;
-}
-
-.arc-scale-row input[type="number"] {
-  width: 56px;
-}
-
-/* Outline <-> Arc connection affordances */
-
-.emotion-badge {
-  position: absolute;
-  top: -8px;
-  right: 8px;
-  z-index: 3;
-  background: var(--bg-hover);
   border: 1px solid var(--accent-dim);
-  border-radius: 10px;
+  border-radius: 6px;
   color: var(--accent);
-  font-size: 11px;
-  padding: 1px 7px;
   cursor: pointer;
+  padding: 5px 9px;
 }
 
 .outline-node-wrap.highlight .outline-card {
