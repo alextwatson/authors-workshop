@@ -13,13 +13,54 @@ import (
 
 // ProjectMeta is the content of project.json at the root of a project folder.
 type ProjectMeta struct {
-	Name          string `json:"name"`
-	Author        string `json:"author"`
-	Description   string `json:"description"`
-	WordCountGoal int    `json:"wordCountGoal"`
-	DailyWordGoal int    `json:"dailyWordGoal"`
-	CreatedAt     string `json:"createdAt"`
-	UpdatedAt     string `json:"updatedAt"`
+	Name          string         `json:"name"`
+	Author        string         `json:"author"`
+	Description   string         `json:"description"`
+	WordCountGoal int            `json:"wordCountGoal"`
+	DailyWordGoal int            `json:"dailyWordGoal"`
+	CreatedAt     string         `json:"createdAt"`
+	UpdatedAt     string         `json:"updatedAt"`
+	Focus         *FocusSettings `json:"focus,omitempty"`
+}
+
+// FocusSettings controls the manuscript focus-writing mode. Stored per project
+// in project.json. A nil value (older projects) is filled in with defaults on
+// load, so the frontend always receives a fully populated object.
+//
+// Each effect has a base flag (does it happen in focus mode?) and an "always"
+// flag (apply it even when focus mode is off?).
+type FocusSettings struct {
+	DimSentences  bool `json:"dimSentences"`  // dim every sentence but the one being written
+	Typewriter    bool `json:"typewriter"`    // keep the current line vertically centered
+	DimTitle      bool `json:"dimTitle"`      // dim the chapter title while editing the body
+	HideWordCount bool `json:"hideWordCount"` // hide the word-count / save-status bar
+
+	DimSentencesAlways  bool `json:"dimSentencesAlways"`
+	TypewriterAlways    bool `json:"typewriterAlways"`
+	DimTitleAlways      bool `json:"dimTitleAlways"`
+	HideWordCountAlways bool `json:"hideWordCountAlways"`
+}
+
+func defaultFocusSettings() *FocusSettings {
+	return &FocusSettings{
+		DimSentences:  true,
+		Typewriter:    true,
+		DimTitle:      true,
+		HideWordCount: true,
+	}
+}
+
+// UnmarshalJSON starts from the defaults so a focus object written by an older
+// build (missing newer keys) keeps each absent setting at its default rather
+// than defaulting to the zero value.
+func (f *FocusSettings) UnmarshalJSON(data []byte) error {
+	type alias FocusSettings
+	tmp := alias(*defaultFocusSettings())
+	if err := json.Unmarshal(data, &tmp); err != nil {
+		return err
+	}
+	*f = FocusSettings(tmp)
+	return nil
 }
 
 // Project pairs a project folder on disk with its parsed metadata.
@@ -105,6 +146,9 @@ func readProjectMeta(projectPath string) (ProjectMeta, error) {
 	}
 	if err := json.Unmarshal(data, &meta); err != nil {
 		return meta, fmt.Errorf("%s is not valid JSON: %w", projectFile, err)
+	}
+	if meta.Focus == nil {
+		meta.Focus = defaultFocusSettings()
 	}
 	return meta, nil
 }

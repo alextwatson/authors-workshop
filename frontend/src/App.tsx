@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { main } from "../wailsjs/go/models";
 import StartupScreen from "./components/StartupScreen";
 import Sidebar, { Section } from "./components/Sidebar";
@@ -8,6 +8,7 @@ import CharactersView from "./components/views/CharactersView";
 import WorldBuildingView from "./components/views/WorldBuildingView";
 import ProjectSettingsView from "./components/views/ProjectSettingsView";
 import TrashView from "./components/views/TrashView";
+import { resolveFocusSettings } from "./focus";
 
 export default function App() {
     const [project, setProject] = useState<main.Project | null>(null);
@@ -16,11 +17,28 @@ export default function App() {
     // for the bidirectional Outline <-> Emotional Arc hyperlinks.
     const [focusId, setFocusId] = useState<string | null>(null);
     const [sidebarOpen, setSidebarOpen] = useState(true);
+    // Focus mode strips all chrome down to the page you're writing on. It only
+    // applies in the manuscript editor; Esc leaves it.
+    const [focusMode, setFocusMode] = useState(false);
 
     function navigate(to: Section, focus: string | null = null) {
         setSection(to);
         setFocusId(focus);
     }
+
+    useEffect(() => {
+        if (!focusMode) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === "Escape") setFocusMode(false);
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [focusMode]);
+
+    // Leaving the manuscript section drops focus mode so other views keep chrome.
+    useEffect(() => {
+        if (section !== "manuscript" && focusMode) setFocusMode(false);
+    }, [section, focusMode]);
 
     if (!project) {
         return <StartupScreen onProjectReady={(p) => {
@@ -30,8 +48,8 @@ export default function App() {
     }
 
     return (
-        <div className="workspace">
-            {sidebarOpen ? (
+        <div className={`workspace ${focusMode ? "focus-mode" : ""}`}>
+            {focusMode ? null : sidebarOpen ? (
                 <Sidebar
                     projectName={project.meta.name}
                     active={section}
@@ -52,7 +70,13 @@ export default function App() {
             )}
             <main className="main">
                 {section === "manuscript" ? (
-                    <ManuscriptView project={project} chromeVisible={sidebarOpen} />
+                    <ManuscriptView
+                        project={project}
+                        chromeVisible={sidebarOpen}
+                        focusMode={focusMode}
+                        focus={resolveFocusSettings(project.meta.focus)}
+                        onToggleFocus={() => setFocusMode((f) => !f)}
+                    />
                 ) : section === "outline" ? (
                     <OutlineView project={project} focusId={focusId} />
                 ) : section === "characters" ? (

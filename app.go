@@ -60,6 +60,7 @@ func (a *App) CreateProject(name string) (*Project, error) {
 		DailyWordGoal: 500,
 		CreatedAt:     now,
 		UpdatedAt:     now,
+		Focus:         defaultFocusSettings(),
 	}
 	if err := scaffoldProject(dir, meta); err != nil {
 		return nil, fmt.Errorf("could not create project: %w", err)
@@ -94,6 +95,9 @@ func (a *App) LoadProject(projectPath string) (*Project, error) {
 // SaveProjectMeta writes project.json, stamping UpdatedAt. Returns the saved meta.
 func (a *App) SaveProjectMeta(projectPath string, meta ProjectMeta) (*ProjectMeta, error) {
 	meta.UpdatedAt = nowStamp()
+	if meta.Focus == nil {
+		meta.Focus = defaultFocusSettings()
+	}
 	if err := writeJSON(filepath.Join(projectPath, projectFile), meta); err != nil {
 		return nil, fmt.Errorf("could not save project: %w", err)
 	}

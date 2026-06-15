@@ -23,11 +23,22 @@ interface Props {
     // The chapter list is nested inside the sidebar menu: its reopen button
     // only shows once the menu itself is open.
     chromeVisible: boolean;
+    // Focus mode hides the chapter list and dims everything but the sentence
+    // being written. Owned by App so it can also hide the app sidebar.
+    focusMode: boolean;
+    focus: main.FocusSettings;
+    onToggleFocus: () => void;
 }
 
 type DocRef = { kind: "chapter" | "scene"; filename: string };
 
-export default function ManuscriptView({ project, chromeVisible }: Props) {
+export default function ManuscriptView({
+    project,
+    chromeVisible,
+    focusMode,
+    focus,
+    onToggleFocus,
+}: Props) {
     const [chapters, setChapters] = useState<main.ChapterInfo[]>([]);
     const [scenes, setScenes] = useState<main.ChapterInfo[]>([]);
     const [parts, setParts] = useState<main.ManuscriptPart[]>([]);
@@ -253,7 +264,7 @@ export default function ManuscriptView({ project, chromeVisible }: Props) {
 
     return (
         <div className="manuscript">
-            {listOpen && (
+            {listOpen && !focusMode && (
                 <div className="chapter-list">
                     <div className="list-top">
                         <span className="list-heading">Chapters</span>
@@ -286,7 +297,7 @@ export default function ManuscriptView({ project, chromeVisible }: Props) {
                 </div>
             )}
             <div className="editor-pane">
-                {!listOpen && chromeVisible && (
+                {!listOpen && chromeVisible && !focusMode && (
                     <button
                         className="list-reopen"
                         title="Show chapters"
@@ -295,9 +306,21 @@ export default function ManuscriptView({ project, chromeVisible }: Props) {
                         ☰
                     </button>
                 )}
+                {active && (
+                    <button
+                        className={`focus-toggle ${focusMode ? "on" : ""}`}
+                        title={focusMode ? "Exit focus mode (Esc)" : "Focus mode"}
+                        onClick={onToggleFocus}
+                    >
+                        <span className="focus-toggle-icon">◐</span>
+                        Focus mode
+                    </button>
+                )}
                 {active ? (
                     <DocEditor
                         key={`${active.kind}:${active.filename}`}
+                        focusMode={focusMode}
+                        focus={focus}
                         read={() =>
                             active.kind === "chapter"
                                 ? ReadChapter(project.path, active.filename)
