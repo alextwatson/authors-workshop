@@ -95,3 +95,26 @@ export function serializeCharacter(c: Character): string {
 export function emptyCharacter(): Character {
     return { name: "", role: "", bio: "", attrs: [], arc: [] };
 }
+
+// A freshly created sheet with nothing filled in yet — used to decide whether
+// to open the editor in edit mode (empty) or read-only view mode (has content).
+export function isEmptyCharacter(c: Character): boolean {
+    return (
+        !c.name.trim() &&
+        !c.role.trim() &&
+        !c.bio.trim() &&
+        c.attrs.length === 0 &&
+        c.arc.length === 0
+    );
+}
+
+// Position of a scale value within its range, clamped to 0..1. Returns null
+// when the value is blank or the range is degenerate, so callers can show a
+// placeholder instead of a misleading empty bar.
+export function scaleFraction(attr: CharAttr): number | null {
+    const v = Number(attr.value);
+    if (attr.value.trim() === "" || !Number.isFinite(v) || attr.max <= attr.min) {
+        return null;
+    }
+    return Math.min(1, Math.max(0, (v - attr.min) / (attr.max - attr.min)));
+}

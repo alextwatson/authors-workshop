@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -328,4 +329,140 @@ func (a *App) WriteWorldFile(projectPath, filename, content string) error {
 		return err
 	}
 	return writeFileAtomic(filepath.Join(projectPath, worldDir, name), []byte(content))
+}
+
+// --- Codex (world-building wiki entries) ---
+//
+// One JSON file per entry under worldbuilding/codex/, mirroring how characters
+// are stored. The frontend owns ids/filenames; we validate and write.
+
+func (a *App) ListCodexEntries(projectPath string) ([]string, error) {
+	entries, err := os.ReadDir(filepath.Join(projectPath, worldDir, codexDir))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []string{}, nil
+		}
+		return nil, err
+	}
+	names := []string{}
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".json") {
+			names = append(names, entry.Name())
+		}
+	}
+	sort.Strings(names)
+	return names, nil
+}
+
+func (a *App) ReadCodexEntry(projectPath, filename string) (string, error) {
+	name, err := safeName(filename)
+	if err != nil {
+		return "", err
+	}
+	data, err := os.ReadFile(filepath.Join(projectPath, worldDir, codexDir, name))
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+func (a *App) WriteCodexEntry(projectPath, filename, content string) error {
+	name, err := safeName(filename)
+	if err != nil {
+		return err
+	}
+	dir := filepath.Join(projectPath, worldDir, codexDir)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	return writeFileAtomic(filepath.Join(dir, name), []byte(content))
+}
+
+// --- Atlas (the world map) ---
+//
+// atlas.json holds the map config (which image, plus pins and territory
+// regions); the image itself lives as a real file under worldbuilding/maps/.
+
+func (a *App) ReadAtlas(projectPath string) (string, error) {
+	data, err := os.ReadFile(filepath.Join(projectPath, worldDir, atlasFile))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return defaultAtlas, nil
+		}
+		return "", err
+	}
+	return string(data), nil
+}
+
+func (a *App) WriteAtlas(projectPath, content string) error {
+	dir := filepath.Join(projectPath, worldDir)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	return writeFileAtomic(filepath.Join(dir, atlasFile), []byte(content))
+}
+
+func mapImageMime(ext string) string {
+	switch strings.ToLower(ext) {
+	case ".png":
+		return "image/png"
+	case ".jpg", ".jpeg":
+		return "image/jpeg"
+	case ".gif":
+		return "image/gif"
+	case ".webp":
+		return "image/webp"
+	case ".svg":
+		return "image/svg+xml"
+	default:
+		return "application/octet-stream"
+	}
+}
+
+// ImportMapImage opens a native file picker, copies the chosen image into
+// worldbuilding/maps/, and returns the stored filename (empty if cancelled).
+func (a *App) ImportMapImage(projectPath string) (string, error) {
+	selected, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Choose a map image",
+		Filters: []runtime.FileFilter{{
+			DisplayName: "Images (*.png;*.jpg;*.jpeg;*.gif;*.webp;*.svg)",
+			Pattern:     "*.png;*.jpg;*.jpeg;*.gif;*.webp;*.svg",
+		}},
+	})
+	if err != nil {
+		return "", err
+	}
+	if selected == "" {
+		return "", nil // user cancelled
+	}
+	data, err := os.ReadFile(selected)
+	if err != nil {
+		return "", err
+	}
+	dir := filepath.Join(projectPath, worldDir, mapsDir)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	base := filepath.Base(selected)
+	ext := filepath.Ext(base)
+	stored := availableName(dir, "map-"+slugify(strings.TrimSuffix(base, ext))+strings.ToLower(ext))
+	if err := writeFileAtomic(filepath.Join(dir, stored), data); err != nil {
+		return "", err
+	}
+	return stored, nil
+}
+
+// ReadMapImage returns the stored map image as a data: URL the frontend can
+// drop straight into an <img src>.
+func (a *App) ReadMapImage(projectPath, filename string) (string, error) {
+	name, err := safeName(filename)
+	if err != nil {
+		return "", err
+	}
+	data, err := os.ReadFile(filepath.Join(projectPath, worldDir, mapsDir, name))
+	if err != nil {
+		return "", err
+	}
+	mime := mapImageMime(filepath.Ext(name))
+	return "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(data), nil
 }

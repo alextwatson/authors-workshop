@@ -55,12 +55,12 @@ export default function App() {
                     <ManuscriptView project={project} chromeVisible={sidebarOpen} />
                 ) : section === "outline" ? (
                     <OutlineView project={project} focusId={focusId} />
+                ) : section === "characters" ? (
+                    <CharactersView project={project} onNavigate={navigate} />
+                ) : section === "worldbuilding" ? (
+                    <WorldBuildingView project={project} />
                 ) : (
                     <div className="view">
-                        {section === "characters" && (
-                            <CharactersView project={project} onNavigate={navigate} />
-                        )}
-                        {section === "worldbuilding" && <WorldBuildingView project={project} />}
                         {section === "trash" && <TrashView />}
                         {section === "settings" && (
                             <ProjectSettingsView project={project} onMetaSaved={(meta) => {

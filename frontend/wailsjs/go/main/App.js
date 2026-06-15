@@ -14,6 +14,10 @@ export function DeleteCharacter(arg1, arg2) {
   return window['go']['main']['App']['DeleteCharacter'](arg1, arg2);
 }
 
+export function DeleteCodexEntry(arg1, arg2) {
+  return window['go']['main']['App']['DeleteCodexEntry'](arg1, arg2);
+}
+
 export function DeleteScene(arg1, arg2) {
   return window['go']['main']['App']['DeleteScene'](arg1, arg2);
 }
@@ -22,12 +26,20 @@ export function EmptyTrash() {
   return window['go']['main']['App']['EmptyTrash']();
 }
 
+export function ImportMapImage(arg1) {
+  return window['go']['main']['App']['ImportMapImage'](arg1);
+}
+
 export function ListChapters(arg1) {
   return window['go']['main']['App']['ListChapters'](arg1);
 }
 
 export function ListCharacters(arg1) {
   return window['go']['main']['App']['ListCharacters'](arg1);
+}
+
+export function ListCodexEntries(arg1) {
+  return window['go']['main']['App']['ListCodexEntries'](arg1);
 }
 
 export function ListParts(arg1) {
@@ -54,12 +66,24 @@ export function PromoteSceneToChapter(arg1, arg2) {
   return window['go']['main']['App']['PromoteSceneToChapter'](arg1, arg2);
 }
 
+export function ReadAtlas(arg1) {
+  return window['go']['main']['App']['ReadAtlas'](arg1);
+}
+
 export function ReadChapter(arg1, arg2) {
   return window['go']['main']['App']['ReadChapter'](arg1, arg2);
 }
 
 export function ReadCharacter(arg1, arg2) {
   return window['go']['main']['App']['ReadCharacter'](arg1, arg2);
+}
+
+export function ReadCodexEntry(arg1, arg2) {
+  return window['go']['main']['App']['ReadCodexEntry'](arg1, arg2);
+}
+
+export function ReadMapImage(arg1, arg2) {
+  return window['go']['main']['App']['ReadMapImage'](arg1, arg2);
 }
 
 export function ReadOutline(arg1) {
@@ -90,12 +114,20 @@ export function SetParts(arg1, arg2) {
   return window['go']['main']['App']['SetParts'](arg1, arg2);
 }
 
+export function WriteAtlas(arg1, arg2) {
+  return window['go']['main']['App']['WriteAtlas'](arg1, arg2);
+}
+
 export function WriteChapter(arg1, arg2, arg3) {
   return window['go']['main']['App']['WriteChapter'](arg1, arg2, arg3);
 }
 
 export function WriteCharacter(arg1, arg2, arg3) {
   return window['go']['main']['App']['WriteCharacter'](arg1, arg2, arg3);
+}
+
+export function WriteCodexEntry(arg1, arg2, arg3) {
+  return window['go']['main']['App']['WriteCodexEntry'](arg1, arg2, arg3);
 }
 
 export function WriteOutline(arg1, arg2) {

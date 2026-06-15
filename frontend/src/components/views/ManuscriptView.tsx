@@ -16,6 +16,7 @@ import {
 import { main } from "../../../wailsjs/go/models";
 import DocEditor from "../DocEditor";
 import { newId, nextNumberedFilename } from "../../docnames";
+import { blurOnEnter } from "../../ui";
 
 interface Props {
     project: main.Project;
@@ -225,6 +226,7 @@ export default function ManuscriptView({ project, chromeVisible }: Props) {
                         value={p.label}
                         placeholder="Part title"
                         onChange={(e) => renamePart(p.id, e.target.value)}
+                        onKeyDown={blurOnEnter}
                         onBlur={commitParts}
                     />
                     <button

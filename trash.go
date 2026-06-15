@@ -16,7 +16,7 @@ import (
 // application closes.
 type TrashItem struct {
 	ID          string `json:"id"`
-	Kind        string `json:"kind"` // "chapter" | "scene" | "character"
+	Kind        string `json:"kind"` // "chapter" | "scene" | "character" | "codex"
 	Filename    string `json:"filename"`
 	Title       string `json:"title"`
 	ProjectPath string `json:"projectPath"`
@@ -29,6 +29,8 @@ func docDir(projectPath, kind string) string {
 		return filepath.Join(projectPath, manuscriptDir, scenesSubdir)
 	case "character":
 		return filepath.Join(projectPath, charactersDir)
+	case "codex":
+		return filepath.Join(projectPath, worldDir, codexDir)
 	default:
 		return filepath.Join(projectPath, manuscriptDir)
 	}
@@ -101,6 +103,13 @@ func (a *App) trashDoc(projectPath, kind, filename string) error {
 			if json.Unmarshal(data, &c) == nil && c.Name != "" {
 				title = c.Name
 			}
+		} else if kind == "codex" {
+			var c struct {
+				Title string `json:"title"`
+			}
+			if json.Unmarshal(data, &c) == nil && c.Title != "" {
+				title = c.Title
+			}
 		} else if t, _ := splitChapter(string(data)); t != "" {
 			title = t
 		}
@@ -132,6 +141,10 @@ func (a *App) DeleteScene(projectPath, filename string) error {
 
 func (a *App) DeleteCharacter(projectPath, filename string) error {
 	return a.trashDoc(projectPath, "character", filename)
+}
+
+func (a *App) DeleteCodexEntry(projectPath, filename string) error {
+	return a.trashDoc(projectPath, "codex", filename)
 }
 
 func (a *App) ListTrash() []TrashItem {

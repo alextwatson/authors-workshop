@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { SaveProjectMeta } from "../../../wailsjs/go/main/App";
 import { main } from "../../../wailsjs/go/models";
+import { blurOnEnter } from "../../ui";
 
 interface Props {
     project: main.Project;
@@ -49,6 +50,7 @@ export default function ProjectSettingsView({ project, onMetaSaved }: Props) {
                     <input
                         value={meta.name}
                         onChange={(e) => update({ name: e.target.value })}
+                        onKeyDown={blurOnEnter}
                     />
                 </label>
                 <label>
@@ -56,6 +58,7 @@ export default function ProjectSettingsView({ project, onMetaSaved }: Props) {
                     <input
                         value={meta.author}
                         onChange={(e) => update({ author: e.target.value })}
+                        onKeyDown={blurOnEnter}
                     />
                 </label>
                 <label>
@@ -72,6 +75,7 @@ export default function ProjectSettingsView({ project, onMetaSaved }: Props) {
                         min={0}
                         value={meta.wordCountGoal}
                         onChange={(e) => update({ wordCountGoal: Number(e.target.value) || 0 })}
+                        onKeyDown={blurOnEnter}
                     />
                 </label>
                 <label>
@@ -81,6 +85,7 @@ export default function ProjectSettingsView({ project, onMetaSaved }: Props) {
                         min={0}
                         value={meta.dailyWordGoal}
                         onChange={(e) => update({ dailyWordGoal: Number(e.target.value) || 0 })}
+                        onKeyDown={blurOnEnter}
                     />
                 </label>
                 <div className={`save-status ${saveState}`}>

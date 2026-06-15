@@ -8,13 +8,19 @@ export function DeleteChapter(arg1:string,arg2:string):Promise<void>;
 
 export function DeleteCharacter(arg1:string,arg2:string):Promise<void>;
 
+export function DeleteCodexEntry(arg1:string,arg2:string):Promise<void>;
+
 export function DeleteScene(arg1:string,arg2:string):Promise<void>;
 
 export function EmptyTrash():Promise<void>;
 
+export function ImportMapImage(arg1:string):Promise<string>;
+
 export function ListChapters(arg1:string):Promise<Array<main.ChapterInfo>>;
 
 export function ListCharacters(arg1:string):Promise<Array<string>>;
+
+export function ListCodexEntries(arg1:string):Promise<Array<string>>;
 
 export function ListParts(arg1:string):Promise<Array<main.ManuscriptPart>>;
 
@@ -28,9 +34,15 @@ export function OpenProject():Promise<main.Project>;
 
 export function PromoteSceneToChapter(arg1:string,arg2:string):Promise<string>;
 
+export function ReadAtlas(arg1:string):Promise<string>;
+
 export function ReadChapter(arg1:string,arg2:string):Promise<string>;
 
 export function ReadCharacter(arg1:string,arg2:string):Promise<string>;
+
+export function ReadCodexEntry(arg1:string,arg2:string):Promise<string>;
+
+export function ReadMapImage(arg1:string,arg2:string):Promise<string>;
 
 export function ReadOutline(arg1:string):Promise<string>;
 
@@ -46,9 +58,13 @@ export function SetManuscriptOrder(arg1:string,arg2:string,arg3:Array<string>):P
 
 export function SetParts(arg1:string,arg2:Array<main.ManuscriptPart>):Promise<void>;
 
+export function WriteAtlas(arg1:string,arg2:string):Promise<void>;
+
 export function WriteChapter(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function WriteCharacter(arg1:string,arg2:string,arg3:string):Promise<void>;
+
+export function WriteCodexEntry(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function WriteOutline(arg1:string,arg2:string):Promise<void>;
 

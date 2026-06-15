@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { blurOnEnter } from "../ui";
 
 interface Props {
     read: () => Promise<string>;
@@ -113,6 +114,7 @@ export default function DocEditor({ read, write, onSaved, fallbackTitle }: Props
                     titleRef.current = e.target.value;
                     scheduleSave();
                 }}
+                onKeyDown={blurOnEnter}
                 placeholder="Title"
                 spellCheck
             />

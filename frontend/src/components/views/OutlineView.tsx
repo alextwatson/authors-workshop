@@ -17,6 +17,7 @@ import {
 import { main } from "../../../wailsjs/go/models";
 import DocEditor, { countWords, parseDoc } from "../DocEditor";
 import { newId, nextNumberedFilename } from "../../docnames";
+import { blurOnEnter } from "../../ui";
 import {
     DocKind,
     OutlineGroup,
@@ -668,6 +669,7 @@ export default function OutlineView({ project, focusId }: Props) {
                         value={n.tagLabel}
                         placeholder="tag"
                         onChange={(e) => patchNode(n.id, { tagLabel: e.target.value })}
+                        onKeyDown={blurOnEnter}
                     />
                 )}
             </div>
@@ -699,6 +701,7 @@ export default function OutlineView({ project, focusId }: Props) {
                                             )
                                         )
                                     }
+                                    onKeyDown={blurOnEnter}
                                 />
                                 <textarea
                                     ref={autoGrow}
@@ -830,6 +833,7 @@ export default function OutlineView({ project, focusId }: Props) {
                                             value={n.title}
                                             placeholder="Story point"
                                             onChange={(e) => patchNode(n.id, { title: e.target.value })}
+                                            onKeyDown={blurOnEnter}
                                         />
                                         <textarea
                                             ref={autoGrow}

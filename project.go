@@ -41,6 +41,10 @@ const (
 	scenesSubdir    = "scenes"
 	charactersDir   = "characters"
 	worldDir        = "worldbuilding"
+	codexDir        = "codex"
+	mapsDir         = "maps"
+	atlasFile       = "atlas.json"
+	defaultAtlas    = "{\n  \"version\": 1,\n  \"mapImage\": \"\",\n  \"pins\": [],\n  \"regions\": []\n}\n"
 	outlineFile     = "outline.json"
 	defaultOutline  = "{\n  \"version\": 1,\n  \"nodes\": []\n}\n"
 	defaultLocation = "{\n  \"locations\": []\n}\n"
@@ -107,7 +111,13 @@ func readProjectMeta(projectPath string) (ProjectMeta, error) {
 
 // scaffoldProject creates the full folder structure for a new project.
 func scaffoldProject(dir string, meta ProjectMeta) error {
-	for _, sub := range []string{manuscriptDir, charactersDir, worldDir} {
+	dirs := []string{
+		manuscriptDir,
+		charactersDir,
+		worldDir,
+		filepath.Join(worldDir, codexDir),
+	}
+	for _, sub := range dirs {
 		if err := os.MkdirAll(filepath.Join(dir, sub), 0o755); err != nil {
 			return err
 		}

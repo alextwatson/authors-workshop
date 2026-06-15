@@ -38,8 +38,8 @@ export default function TrashView() {
         <>
             <h2>Trash</h2>
             <p className="subtitle">
-                Deleted scenes, chapters, and characters stay here, recoverable until you
-                empty the trash or quit the app.
+                Deleted scenes, chapters, characters, and world-building entries stay here,
+                recoverable until you empty the trash or quit the app.
             </p>
             {error && <p className="subtitle save-status error">{error}</p>}
             {items.length === 0 ? (
@@ -55,6 +55,8 @@ export default function TrashView() {
                                             ? "◇ "
                                             : item.kind === "character"
                                             ? "☻ "
+                                            : item.kind === "codex"
+                                            ? "❡ "
                                             : "§ "}
                                     </span>
                                     {item.title}
