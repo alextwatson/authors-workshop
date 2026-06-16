@@ -24,6 +24,10 @@ This app is deliberately **clean and simple** — a distraction-free tool for wr
 
 There is no test suite.
 
+### Running the app for testing
+
+**The user runs and tests the app themselves and gives feedback — don't launch it.** This is a native macOS desktop app; there's no automated way to drive its window, and full-screen screenshots are intrusive. Verify your changes with the build/type-check commands above (or `./dev.sh`), then hand off to the user to try it. To launch it yourself only if explicitly asked: `wails dev` (hot-reload) or `open build/bin/authors-workshop.app` after a `wails build`.
+
 Requires Go 1.23+, Node 18+, and the Wails CLI (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`).
 
 ## Architecture
