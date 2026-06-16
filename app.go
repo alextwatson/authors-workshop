@@ -55,12 +55,13 @@ func (a *App) CreateProject(name string) (*Project, error) {
 	}
 	now := nowStamp()
 	meta := ProjectMeta{
-		Name:          name,
-		WordCountGoal: 80000,
-		DailyWordGoal: 500,
-		CreatedAt:     now,
-		UpdatedAt:     now,
-		Focus:         defaultFocusSettings(),
+		Name:             name,
+		WordCountGoal:    80000,
+		DailyWordGoal:    500,
+		CreatedAt:        now,
+		UpdatedAt:        now,
+		Focus:            defaultFocusSettings(),
+		ManuscriptFormat: "md",
 	}
 	if err := scaffoldProject(dir, meta); err != nil {
 		return nil, fmt.Errorf("could not create project: %w", err)
@@ -98,10 +99,195 @@ func (a *App) SaveProjectMeta(projectPath string, meta ProjectMeta) (*ProjectMet
 	if meta.Focus == nil {
 		meta.Focus = defaultFocusSettings()
 	}
+	meta.ManuscriptFormat = normalizeFormat(meta.ManuscriptFormat)
 	if err := writeJSON(filepath.Join(projectPath, projectFile), meta); err != nil {
 		return nil, fmt.Errorf("could not save project: %w", err)
 	}
 	return &meta, nil
+}
+
+// SetManuscriptFormat switches the whole manuscript between markdown (.md, with
+// "# " title headings) and plain text (.txt, title on the first line). Every
+// chapter and scene file is rewritten in the new format and renamed, and the
+// filename references stored in order.json and outline.json are remapped to
+// match so nothing is orphaned. Returns the updated, saved meta.
+func (a *App) SetManuscriptFormat(projectPath, format string) (*ProjectMeta, error) {
+	newFormat := normalizeFormat(format)
+	meta, err := readProjectMeta(projectPath)
+	if err != nil {
+		return nil, err
+	}
+	oldFormat := normalizeFormat(meta.ManuscriptFormat)
+	if oldFormat == newFormat {
+		meta.ManuscriptFormat = newFormat
+		return a.SaveProjectMeta(projectPath, meta)
+	}
+	oldExt := manuscriptExt(oldFormat)
+	newExt := manuscriptExt(newFormat)
+
+	// Rewrite + rename every chapter and scene file, recording old->new names.
+	renames := map[string]string{}
+	for _, dir := range []string{
+		filepath.Join(projectPath, manuscriptDir),
+		filepath.Join(projectPath, manuscriptDir, scenesSubdir),
+	} {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, err
+		}
+		for _, entry := range entries {
+			name := entry.Name()
+			if entry.IsDir() || !strings.EqualFold(filepath.Ext(name), oldExt) {
+				continue
+			}
+			data, err := os.ReadFile(filepath.Join(dir, name))
+			if err != nil {
+				return nil, err
+			}
+			title, body := splitDoc(string(data), oldFormat)
+			newName := strings.TrimSuffix(name, filepath.Ext(name)) + newExt
+			if err := writeFileAtomic(filepath.Join(dir, newName), []byte(serializeDoc(title, body, newFormat))); err != nil {
+				return nil, err
+			}
+			if newName != name {
+				if err := os.Remove(filepath.Join(dir, name)); err != nil {
+					return nil, err
+				}
+			}
+			renames[name] = newName
+		}
+	}
+
+	// Remap order.json (chapter/scene lists and Part anchors).
+	o := readManuscriptOrder(projectPath)
+	remap := func(files []string) {
+		for i, f := range files {
+			if nn, ok := renames[f]; ok {
+				files[i] = nn
+			}
+		}
+	}
+	remap(o.Chapters)
+	remap(o.Scenes)
+	for i := range o.Parts {
+		if nn, ok := renames[o.Parts[i].Before]; ok {
+			o.Parts[i].Before = nn
+		}
+	}
+	if err := writeJSON(filepath.Join(projectPath, manuscriptDir, orderFile), o); err != nil {
+		return nil, err
+	}
+
+	// Remap outline.json. It's opaque to Go, but scene/chapter references are
+	// stored as quoted filename strings, so a targeted quoted replacement is
+	// precise (a bare filename inside prose won't carry surrounding quotes).
+	outlinePath := filepath.Join(projectPath, outlineFile)
+	if data, err := os.ReadFile(outlinePath); err == nil {
+		s := string(data)
+		for old, nn := range renames {
+			if old != nn {
+				s = strings.ReplaceAll(s, `"`+old+`"`, `"`+nn+`"`)
+			}
+		}
+		if err := writeFileAtomic(outlinePath, []byte(s)); err != nil {
+			return nil, err
+		}
+	} else if !os.IsNotExist(err) {
+		return nil, err
+	}
+
+	meta.ManuscriptFormat = newFormat
+	return a.SaveProjectMeta(projectPath, meta)
+}
+
+// ExportManuscript stitches every chapter, in the user's chosen order and with
+// its Part dividers, into a single file in the requested format ("md" or
+// "txt"), then saves it wherever the user picks. The export format is
+// independent of how the manuscript is stored on disk. Returns the saved path,
+// or "" if the user cancels the save dialog.
+func (a *App) ExportManuscript(projectPath, format string) (string, error) {
+	exportFormat := normalizeFormat(format)
+	meta, err := readProjectMeta(projectPath)
+	if err != nil {
+		return "", err
+	}
+	storeFormat := normalizeFormat(meta.ManuscriptFormat)
+
+	chapters, err := a.ListChapters(projectPath)
+	if err != nil {
+		return "", err
+	}
+	partBefore := map[string]string{}
+	for _, p := range readManuscriptOrder(projectPath).Parts {
+		if strings.TrimSpace(p.Label) != "" {
+			partBefore[p.Before] = strings.TrimSpace(p.Label)
+		}
+	}
+	// With Parts present, chapters sit a level below them in markdown.
+	chapterHeading := "# "
+	if len(partBefore) > 0 {
+		chapterHeading = "## "
+	}
+
+	var b strings.Builder
+	for _, ch := range chapters {
+		if label, ok := partBefore[ch.Filename]; ok {
+			if b.Len() > 0 {
+				b.WriteString("\n")
+			}
+			if exportFormat == "txt" {
+				b.WriteString(strings.ToUpper(label) + "\n\n")
+			} else {
+				b.WriteString("# " + label + "\n\n")
+			}
+		}
+		data, err := os.ReadFile(filepath.Join(projectPath, manuscriptDir, ch.Filename))
+		if err != nil {
+			return "", err
+		}
+		title, body := splitDoc(string(data), storeFormat)
+		if b.Len() > 0 {
+			b.WriteString("\n")
+		}
+		if strings.TrimSpace(title) != "" {
+			if exportFormat == "txt" {
+				b.WriteString(strings.TrimSpace(title) + "\n\n")
+			} else {
+				b.WriteString(chapterHeading + strings.TrimSpace(title) + "\n\n")
+			}
+		}
+		b.WriteString(strings.TrimRight(body, "\n"))
+		b.WriteString("\n")
+	}
+
+	defaultName := slugify(meta.Name)
+	if defaultName == "untitled-project" {
+		defaultName = "manuscript"
+	}
+	ext := manuscriptExt(exportFormat)
+	display := "Markdown (*.md)"
+	if exportFormat == "txt" {
+		display = "Plain text (*.txt)"
+	}
+	dest, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		Title:                "Export manuscript",
+		DefaultFilename:      defaultName + ext,
+		CanCreateDirectories: true,
+		Filters:              []runtime.FileFilter{{DisplayName: display, Pattern: "*" + ext}},
+	})
+	if err != nil {
+		return "", err
+	}
+	if dest == "" {
+		return "", nil // user cancelled
+	}
+	if err := writeFileAtomic(dest, []byte(b.String())); err != nil {
+		return "", err
+	}
+	return dest, nil
 }
 
 // --- Manuscript ---
@@ -116,16 +302,20 @@ func listDocs(dir string) ([]ChapterInfo, error) {
 	}
 	chapters := []ChapterInfo{}
 	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
+		if entry.IsDir() {
+			continue
+		}
+		ext := strings.ToLower(filepath.Ext(entry.Name()))
+		if ext != ".md" && ext != ".txt" {
 			continue
 		}
 		data, err := os.ReadFile(filepath.Join(dir, entry.Name()))
 		if err != nil {
 			return nil, err
 		}
-		title, body := splitChapter(string(data))
+		title, body := splitDoc(string(data), formatForExt(ext))
 		if title == "" {
-			title = strings.TrimSuffix(entry.Name(), ".md")
+			title = strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name()))
 		}
 		chapters = append(chapters, ChapterInfo{
 			Filename:  entry.Name(),

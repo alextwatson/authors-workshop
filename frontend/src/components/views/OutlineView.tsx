@@ -15,7 +15,7 @@ import {
     WriteScene,
 } from "../../../wailsjs/go/main/App";
 import { main } from "../../../wailsjs/go/models";
-import DocEditor, { countWords, parseDoc } from "../DocEditor";
+import DocEditor, { countWords, parseDoc, serializeDoc } from "../DocEditor";
 import { newId, nextNumberedFilename } from "../../docnames";
 import { blurOnEnter } from "../../ui";
 import {
@@ -120,6 +120,9 @@ export default function OutlineView({ project, focusId }: Props) {
     >(null);
     const [dragOverKey, setDragOverKey] = useState<string | null>(null);
 
+    const format = project.meta.manuscriptFormat || "md";
+    const ext = format === "txt" ? ".txt" : ".md";
+
     // Measured vertical spans for each group's curly brace, keyed by group id.
     const spineRef = useRef<HTMLDivElement>(null);
     const nodeEls = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -191,7 +194,7 @@ export default function OutlineView({ project, focusId }: Props) {
                 ).catch(() => {});
             }
         };
-    }, [project.path]);
+    }, [project.path, format]);
 
     function scheduleSave() {
         dirtyRef.current = true;
@@ -351,13 +354,13 @@ export default function OutlineView({ project, focusId }: Props) {
 
     async function createDoc(kind: DocKind, title: string, body: string): Promise<string> {
         if (kind === "scene") {
-            const { filename, number } = nextNumberedFilename(scenes, "scene");
-            await WriteScene(project.path, filename, `# ${title || `Scene ${number}`}\n\n${body}`);
+            const { filename, number } = nextNumberedFilename(scenes, "scene", ext);
+            await WriteScene(project.path, filename, serializeDoc(title || `Scene ${number}`, body, format));
             setScenes(await ListScenes(project.path));
             return filename;
         }
-        const { filename, number } = nextNumberedFilename(chapters, "chapter");
-        await WriteChapter(project.path, filename, `# ${title || `Chapter ${number}`}\n\n${body}`);
+        const { filename, number } = nextNumberedFilename(chapters, "chapter", ext);
+        await WriteChapter(project.path, filename, serializeDoc(title || `Chapter ${number}`, body, format));
         setChapters(await ListChapters(project.path));
         return filename;
     }
@@ -408,7 +411,7 @@ export default function OutlineView({ project, focusId }: Props) {
     async function convertToPoint(node: OutlineNode) {
         try {
             const content = await ReadScene(project.path, node.file);
-            const parsed = parseDoc(content);
+            const parsed = parseDoc(content, format);
             patchNode(node.id, {
                 kind: "point",
                 title: parsed.title || node.title,
@@ -634,6 +637,7 @@ export default function OutlineView({ project, focusId }: Props) {
                 <div className="editor-pane">
                     <DocEditor
                         key={`${editing.kind}:${editing.file}`}
+                        format={format}
                         read={() =>
                             editing.kind === "scene"
                                 ? ReadScene(project.path, editing.file)
@@ -645,7 +649,7 @@ export default function OutlineView({ project, focusId }: Props) {
                                 : WriteChapter(project.path, editing.file, content)
                         }
                         onSaved={(info) => updateDocList(editing, info)}
-                        fallbackTitle={editing.file.replace(/\.md$/, "")}
+                        fallbackTitle={editing.file.replace(/\.(md|txt)$/, "")}
                     />
                 </div>
             </div>

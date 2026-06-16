@@ -14,6 +14,9 @@ interface Props {
     // The user's focus-mode preferences (dim amount, typewriter, etc.). Omitted
     // outside the manuscript (e.g. the outline editor), where focus mode is off.
     focus?: main.FocusSettings;
+    // How the document is stored: "md" (title as a "# " heading) or "txt"
+    // (title on the first line). Defaults to markdown.
+    format?: string;
 }
 
 type Segment = { start: number; end: number };
@@ -52,14 +55,15 @@ export function countWords(text: string): number {
     return trimmed ? trimmed.split(/\s+/).length : 0;
 }
 
-// Mirrors splitChapter in project.go: the first # heading is the title,
-// everything after it is the body.
-export function parseDoc(content: string): { title: string; body: string } {
+// Mirrors splitDoc in project.go. In markdown the title is the first "#"
+// heading; in plain text it's simply the first non-empty line. Everything
+// after that line is the body.
+export function parseDoc(content: string, format: string = "md"): { title: string; body: string } {
     const lines = content.split("\n");
     for (let i = 0; i < lines.length; i++) {
         const trimmed = lines[i].trim();
         if (!trimmed) continue;
-        if (trimmed.startsWith("#")) {
+        if (format === "txt" || trimmed.startsWith("#")) {
             return {
                 title: trimmed.replace(/^#+\s*/, ""),
                 body: lines.slice(i + 1).join("\n").replace(/^\n+/, ""),
@@ -70,14 +74,15 @@ export function parseDoc(content: string): { title: string; body: string } {
     return { title: "", body: content };
 }
 
-export function serializeDoc(title: string, body: string): string {
+export function serializeDoc(title: string, body: string, format: string = "md"): string {
     const t = title.trim();
-    return t ? `# ${t}\n\n${body}` : body;
+    if (!t) return body;
+    return format === "txt" ? `${t}\n\n${body}` : `# ${t}\n\n${body}`;
 }
 
 // A markdown document editor with a separate title field and debounced,
 // flush-on-unmount auto-save. Remount (via key) to switch documents.
-export default function DocEditor({ read, write, onSaved, fallbackTitle, focusMode, focus: focusProp }: Props) {
+export default function DocEditor({ read, write, onSaved, fallbackTitle, focusMode, focus: focusProp, format = "md" }: Props) {
     const focus = resolveFocusSettings(focusProp);
     // Which effects are active right now, folding in the "always" overrides.
     const eff = effectiveFocus(focus, !!focusMode);
@@ -101,7 +106,7 @@ export default function DocEditor({ read, write, onSaved, fallbackTitle, focusMo
     useEffect(() => {
         read()
             .then((content) => {
-                const parsed = parseDoc(content);
+                const parsed = parseDoc(content, format);
                 titleRef.current = parsed.title;
                 bodyRef.current = parsed.body;
                 setTitle(parsed.title);
@@ -112,7 +117,7 @@ export default function DocEditor({ read, write, onSaved, fallbackTitle, focusMo
         return () => {
             window.clearTimeout(saveTimer.current);
             if (dirtyRef.current) {
-                write(serializeDoc(titleRef.current, bodyRef.current)).catch(() => {});
+                write(serializeDoc(titleRef.current, bodyRef.current, format)).catch(() => {});
             }
         };
     }, []);
@@ -122,7 +127,7 @@ export default function DocEditor({ read, write, onSaved, fallbackTitle, focusMo
         const t = titleRef.current;
         const b = bodyRef.current;
         try {
-            await write(serializeDoc(t, b));
+            await write(serializeDoc(t, b, format));
             dirtyRef.current = false;
             setSaveState("saved");
             onSaved?.({ title: t.trim() || fallbackTitle, wordCount: countWords(b) });

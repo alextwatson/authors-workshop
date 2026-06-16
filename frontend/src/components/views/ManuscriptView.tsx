@@ -14,7 +14,7 @@ import {
     WriteScene,
 } from "../../../wailsjs/go/main/App";
 import { main } from "../../../wailsjs/go/models";
-import DocEditor from "../DocEditor";
+import DocEditor, { serializeDoc } from "../DocEditor";
 import { newId, nextNumberedFilename } from "../../docnames";
 import { blurOnEnter } from "../../ui";
 
@@ -48,6 +48,9 @@ export default function ManuscriptView({
     const [dragOverKey, setDragOverKey] = useState<string | null>(null);
     const dragRef = useRef<{ kind: DocRef["kind"]; index: number } | null>(null);
 
+    const format = project.meta.manuscriptFormat || "md";
+    const ext = format === "txt" ? ".txt" : ".md";
+
     useEffect(() => {
         Promise.all([ListChapters(project.path), ListScenes(project.path), ListParts(project.path)])
             .then(([chapterList, sceneList, partList]) => {
@@ -65,7 +68,7 @@ export default function ManuscriptView({
                 }
             })
             .catch((err) => setError(String(err)));
-    }, [project.path]);
+    }, [project.path, format]);
 
     function persistParts(next: main.ManuscriptPart[]) {
         setParts(next);
@@ -104,9 +107,9 @@ export default function ManuscriptView({
     }
 
     async function newChapter() {
-        const { filename, number } = nextNumberedFilename(chapters, "chapter");
+        const { filename, number } = nextNumberedFilename(chapters, "chapter", ext);
         try {
-            await WriteChapter(project.path, filename, `# Chapter ${number}\n\n`);
+            await WriteChapter(project.path, filename, serializeDoc(`Chapter ${number}`, "", format));
             setChapters(await ListChapters(project.path));
             setActive({ kind: "chapter", filename });
         } catch (err) {
@@ -319,6 +322,7 @@ export default function ManuscriptView({
                 {active ? (
                     <DocEditor
                         key={`${active.kind}:${active.filename}`}
+                        format={format}
                         focusMode={focusMode}
                         focus={focus}
                         read={() =>
@@ -332,7 +336,7 @@ export default function ManuscriptView({
                                 : WriteScene(project.path, active.filename, content)
                         }
                         onSaved={(info) => updateListEntry(active, info)}
-                        fallbackTitle={active.filename.replace(/\.md$/, "")}
+                        fallbackTitle={active.filename.replace(/\.(md|txt)$/, "")}
                     />
                 ) : (
                     <div className="view">

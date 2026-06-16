@@ -44,10 +44,10 @@ Each project is a plain folder the user can sync/back up. The layout (constants 
 
 ```
 my-novel/
-  project.json            # ProjectMeta: name, goals, focus settings
+  project.json            # ProjectMeta: name, goals, focus + manuscriptFormat ("md" | "txt")
   manuscript/
-    chapter-NN.md         # one file per chapter; first "# heading" is the title
-    scenes/scene-NN.md    # loose scenes, can be promoted to chapters
+    chapter-NN.md/.txt    # one file per chapter; md title is a "# heading", txt the first line
+    scenes/scene-NN.*     # loose scenes (same format as chapters), can be promoted to chapters
     order.json            # user's drag-order for chapters/scenes + Part dividers
   outline.json            # hierarchical outline (opaque JSON owned by frontend)
   characters/char-NN.json # one file per character
@@ -64,6 +64,7 @@ Conventions that recur across the backend:
 - **Path-traversal guard**: any filename arriving from the frontend is passed through `safeName` before being joined to a path. World-building files use the stricter `worldFile` allowlist.
 - **Missing files return defaults, not errors**: e.g. `ReadOutline` returns `defaultOutline` if the file doesn't exist yet. Reads should generally treat `os.IsNotExist` as "empty/default".
 - **JSON blobs are opaque to Go**: outline, character, codex, and atlas contents are read/written as raw strings; their schema lives entirely in the frontend (`outline.ts`, `characters.ts`, `codex.ts`, `atlas.ts`). Go only parses enough to extract a display title when trashing.
+- **Manuscript format is md or txt**: `splitDoc`/`serializeDoc` (mirrored by `parseDoc`/`serializeDoc` in `DocEditor.tsx`) handle both — markdown uses a `# ` title heading, plain text the first line. `SetManuscriptFormat` converts the whole manuscript at once: it rewrites + renames every chapter/scene file and remaps the filename references stored in `order.json` (Go struct) and `outline.json` (opaque — patched by quoted-string replace). `ExportManuscript` stitches chapters into one file in either format, independent of how they're stored.
 
 ### Trash (`trash.go`)
 

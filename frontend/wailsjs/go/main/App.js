@@ -26,6 +26,54 @@ export function EmptyTrash() {
   return window['go']['main']['App']['EmptyTrash']();
 }
 
+export function ExportManuscript(arg1, arg2) {
+  return window['go']['main']['App']['ExportManuscript'](arg1, arg2);
+}
+
+export function GitClone(arg1) {
+  return window['go']['main']['App']['GitClone'](arg1);
+}
+
+export function GitCommit(arg1, arg2) {
+  return window['go']['main']['App']['GitCommit'](arg1, arg2);
+}
+
+export function GitCreateRepo(arg1) {
+  return window['go']['main']['App']['GitCreateRepo'](arg1);
+}
+
+export function GitHubPollLogin(arg1, arg2, arg3) {
+  return window['go']['main']['App']['GitHubPollLogin'](arg1, arg2, arg3);
+}
+
+export function GitHubStartLogin() {
+  return window['go']['main']['App']['GitHubStartLogin']();
+}
+
+export function GitInit(arg1) {
+  return window['go']['main']['App']['GitInit'](arg1);
+}
+
+export function GitLog(arg1, arg2) {
+  return window['go']['main']['App']['GitLog'](arg1, arg2);
+}
+
+export function GitPull(arg1) {
+  return window['go']['main']['App']['GitPull'](arg1);
+}
+
+export function GitPush(arg1) {
+  return window['go']['main']['App']['GitPush'](arg1);
+}
+
+export function GitSetRemote(arg1, arg2) {
+  return window['go']['main']['App']['GitSetRemote'](arg1, arg2);
+}
+
+export function GitStatus(arg1) {
+  return window['go']['main']['App']['GitStatus'](arg1);
+}
+
 export function ImportMapImage(arg1) {
   return window['go']['main']['App']['ImportMapImage'](arg1);
 }
@@ -60,6 +108,10 @@ export function LoadProject(arg1) {
 
 export function OpenProject() {
   return window['go']['main']['App']['OpenProject']();
+}
+
+export function OpenURL(arg1) {
+  return window['go']['main']['App']['OpenURL'](arg1);
 }
 
 export function PromoteSceneToChapter(arg1, arg2) {
@@ -104,6 +156,10 @@ export function RestoreTrashItem(arg1) {
 
 export function SaveProjectMeta(arg1, arg2) {
   return window['go']['main']['App']['SaveProjectMeta'](arg1, arg2);
+}
+
+export function SetManuscriptFormat(arg1, arg2) {
+  return window['go']['main']['App']['SetManuscriptFormat'](arg1, arg2);
 }
 
 export function SetManuscriptOrder(arg1, arg2, arg3) {

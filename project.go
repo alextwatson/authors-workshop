@@ -21,6 +21,10 @@ type ProjectMeta struct {
 	CreatedAt     string         `json:"createdAt"`
 	UpdatedAt     string         `json:"updatedAt"`
 	Focus         *FocusSettings `json:"focus,omitempty"`
+	// ManuscriptFormat is "md" (chapters stored as markdown with "# " title
+	// headings) or "txt" (plain text, title on the first line). Empty/unknown
+	// values are treated as "md".
+	ManuscriptFormat string `json:"manuscriptFormat"`
 }
 
 // FocusSettings controls the manuscript focus-writing mode. Stored per project
@@ -69,7 +73,7 @@ type Project struct {
 	Meta ProjectMeta `json:"meta"`
 }
 
-// ChapterInfo is a summary of one manuscript .md file.
+// ChapterInfo is a summary of one manuscript chapter/scene file (.md or .txt).
 type ChapterInfo struct {
 	Filename  string `json:"filename"`
 	Title     string `json:"title"`
@@ -150,6 +154,7 @@ func readProjectMeta(projectPath string) (ProjectMeta, error) {
 	if meta.Focus == nil {
 		meta.Focus = defaultFocusSettings()
 	}
+	meta.ManuscriptFormat = normalizeFormat(meta.ManuscriptFormat)
 	return meta, nil
 }
 
@@ -170,9 +175,9 @@ func scaffoldProject(dir string, meta ProjectMeta) error {
 		return err
 	}
 	files := map[string]string{
-		filepath.Join(dir, outlineFile):                 defaultOutline,
-		filepath.Join(dir, worldDir, "locations.json"):  defaultLocation,
-		filepath.Join(dir, worldDir, "lore.json"):       defaultLore,
+		filepath.Join(dir, outlineFile):                    defaultOutline,
+		filepath.Join(dir, worldDir, "locations.json"):     defaultLocation,
+		filepath.Join(dir, worldDir, "lore.json"):          defaultLore,
 		filepath.Join(dir, manuscriptDir, "chapter-01.md"): "# Chapter 1\n\n",
 	}
 	for path, content := range files {
@@ -183,14 +188,45 @@ func scaffoldProject(dir string, meta ProjectMeta) error {
 	return nil
 }
 
-// splitChapter separates a chapter file into its title (the first # heading)
-// and body, so the title can be edited and counted separately from the prose.
-func splitChapter(content string) (title, body string) {
+// normalizeFormat coerces a stored/incoming manuscript format to a known value,
+// defaulting anything unrecognised (including "") to markdown.
+func normalizeFormat(format string) string {
+	if format == "txt" {
+		return "txt"
+	}
+	return "md"
+}
+
+// manuscriptExt is the on-disk file extension for a manuscript format.
+func manuscriptExt(format string) string {
+	if normalizeFormat(format) == "txt" {
+		return ".txt"
+	}
+	return ".md"
+}
+
+// formatForExt maps a manuscript file's extension back to its format.
+func formatForExt(ext string) string {
+	if strings.EqualFold(ext, ".txt") {
+		return "txt"
+	}
+	return "md"
+}
+
+// splitDoc separates a chapter/scene file into its title and body, so the
+// title can be edited and counted separately from the prose. In markdown the
+// title is the first "# heading"; in plain text it's the first non-empty line.
+func splitDoc(content, format string) (title, body string) {
 	lines := strings.Split(content, "\n")
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "" {
 			continue
+		}
+		if normalizeFormat(format) == "txt" {
+			title = strings.TrimSpace(strings.TrimLeft(trimmed, "# "))
+			body = strings.TrimLeft(strings.Join(lines[i+1:], "\n"), "\n")
+			return title, body
 		}
 		if strings.HasPrefix(trimmed, "#") {
 			title = strings.TrimSpace(strings.TrimLeft(trimmed, "# "))
@@ -200,6 +236,19 @@ func splitChapter(content string) (title, body string) {
 		break
 	}
 	return "", content
+}
+
+// serializeDoc joins a title and body back into one file in the given format,
+// mirroring the frontend's serializeDoc.
+func serializeDoc(title, body, format string) string {
+	t := strings.TrimSpace(title)
+	if t == "" {
+		return body
+	}
+	if normalizeFormat(format) == "txt" {
+		return t + "\n\n" + body
+	}
+	return "# " + t + "\n\n" + body
 }
 
 func countWords(content string) int {

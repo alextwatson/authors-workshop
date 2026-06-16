@@ -14,6 +14,30 @@ export function DeleteScene(arg1:string,arg2:string):Promise<void>;
 
 export function EmptyTrash():Promise<void>;
 
+export function ExportManuscript(arg1:string,arg2:string):Promise<string>;
+
+export function GitClone(arg1:string):Promise<main.Project>;
+
+export function GitCommit(arg1:string,arg2:string):Promise<main.GitState>;
+
+export function GitCreateRepo(arg1:string):Promise<main.GitState>;
+
+export function GitHubPollLogin(arg1:string,arg2:string,arg3:number):Promise<main.GitState>;
+
+export function GitHubStartLogin():Promise<main.GitHubLogin>;
+
+export function GitInit(arg1:string):Promise<main.GitState>;
+
+export function GitLog(arg1:string,arg2:number):Promise<Array<main.GitCommitInfo>>;
+
+export function GitPull(arg1:string):Promise<main.GitState>;
+
+export function GitPush(arg1:string):Promise<main.GitState>;
+
+export function GitSetRemote(arg1:string,arg2:string):Promise<main.GitState>;
+
+export function GitStatus(arg1:string):Promise<main.GitState>;
+
 export function ImportMapImage(arg1:string):Promise<string>;
 
 export function ListChapters(arg1:string):Promise<Array<main.ChapterInfo>>;
@@ -31,6 +55,8 @@ export function ListTrash():Promise<Array<main.TrashItem>>;
 export function LoadProject(arg1:string):Promise<main.Project>;
 
 export function OpenProject():Promise<main.Project>;
+
+export function OpenURL(arg1:string):Promise<void>;
 
 export function PromoteSceneToChapter(arg1:string,arg2:string):Promise<string>;
 
@@ -53,6 +79,8 @@ export function ReadWorldFile(arg1:string,arg2:string):Promise<string>;
 export function RestoreTrashItem(arg1:string):Promise<string>;
 
 export function SaveProjectMeta(arg1:string,arg2:main.ProjectMeta):Promise<main.ProjectMeta>;
+
+export function SetManuscriptFormat(arg1:string,arg2:string):Promise<main.ProjectMeta>;
 
 export function SetManuscriptOrder(arg1:string,arg2:string,arg3:Array<string>):Promise<void>;
 

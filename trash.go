@@ -110,7 +110,7 @@ func (a *App) trashDoc(projectPath, kind, filename string) error {
 			if json.Unmarshal(data, &c) == nil && c.Title != "" {
 				title = c.Title
 			}
-		} else if t, _ := splitChapter(string(data)); t != "" {
+		} else if t, _ := splitDoc(string(data), formatForExt(filepath.Ext(name))); t != "" {
 			title = t
 		}
 	}

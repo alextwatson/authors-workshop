@@ -42,6 +42,72 @@ export namespace main {
 	        this.hideWordCountAlways = source["hideWordCountAlways"];
 	    }
 	}
+	export class GitCommitInfo {
+	    hash: string;
+	    date: string;
+	    message: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new GitCommitInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.hash = source["hash"];
+	        this.date = source["date"];
+	        this.message = source["message"];
+	    }
+	}
+	export class GitHubLogin {
+	    userCode: string;
+	    verificationUri: string;
+	    deviceCode: string;
+	    interval: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new GitHubLogin(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.userCode = source["userCode"];
+	        this.verificationUri = source["verificationUri"];
+	        this.deviceCode = source["deviceCode"];
+	        this.interval = source["interval"];
+	    }
+	}
+	export class GitState {
+	    available: boolean;
+	    isRepo: boolean;
+	    branch: string;
+	    hasRemote: boolean;
+	    remoteUrl: string;
+	    dirty: boolean;
+	    changeCount: number;
+	    ahead: number;
+	    behind: number;
+	    signedIn: boolean;
+	    githubUser: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new GitState(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.available = source["available"];
+	        this.isRepo = source["isRepo"];
+	        this.branch = source["branch"];
+	        this.hasRemote = source["hasRemote"];
+	        this.remoteUrl = source["remoteUrl"];
+	        this.dirty = source["dirty"];
+	        this.changeCount = source["changeCount"];
+	        this.ahead = source["ahead"];
+	        this.behind = source["behind"];
+	        this.signedIn = source["signedIn"];
+	        this.githubUser = source["githubUser"];
+	    }
+	}
 	export class ManuscriptPart {
 	    id: string;
 	    label: string;
@@ -67,6 +133,7 @@ export namespace main {
 	    createdAt: string;
 	    updatedAt: string;
 	    focus?: FocusSettings;
+	    manuscriptFormat: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ProjectMeta(source);
@@ -82,6 +149,7 @@ export namespace main {
 	        this.createdAt = source["createdAt"];
 	        this.updatedAt = source["updatedAt"];
 	        this.focus = this.convertValues(source["focus"], FocusSettings);
+	        this.manuscriptFormat = source["manuscriptFormat"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

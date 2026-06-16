@@ -1214,6 +1214,12 @@ button.primary:hover {
   color: var(--text);
 }
 
+.export-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .settings-form .settings-check {
   flex-direction: row;
   align-items: center;
@@ -1287,6 +1293,127 @@ button.primary:hover {
 
 .save-status.error {
   color: var(--danger);
+}
+
+/* --- Version control --- */
+
+.settings-subhead {
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.git-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-left-width: 3px;
+  border-radius: 6px;
+  background: var(--bg-raised);
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.git-banner.ok {
+  border-left-color: var(--accent-dim);
+}
+
+.git-banner.warn {
+  border-left-color: #c9a227;
+}
+
+.git-banner.info {
+  border-left-color: var(--text-faint);
+  color: var(--text-dim);
+}
+
+.git-banner button {
+  margin-left: auto;
+}
+
+.git-code {
+  font-family: var(--font-mono, monospace);
+  font-size: 15px;
+  letter-spacing: 2px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+
+.linklike {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--accent-dim);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.linklike:hover {
+  color: var(--text);
+}
+
+.git-status-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.git-status-line .git-branch {
+  padding: 1px 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  color: var(--text);
+}
+
+.git-status-line .git-sync-state {
+  color: var(--accent-dim);
+}
+
+.git-history {
+  margin-top: 4px;
+}
+
+.git-history ul {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.git-history li {
+  display: flex;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.git-history-date {
+  flex-shrink: 0;
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.git-history-msg {
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* --- Character sheet --- */
