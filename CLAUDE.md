@@ -30,6 +30,22 @@ There is no test suite.
 
 Requires Go 1.23+, Node 18+, and the Wails CLI (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`).
 
+### Releasing a downloadable Mac build
+
+The README's **Download (macOS)** link points at `releases/latest/download/authors-workshop-mac.zip`, so shipping an update is just publishing a new GitHub Release whose asset is named exactly `authors-workshop-mac.zip` — the README link needs no edits. To cut a release (bump the version each time):
+
+```sh
+wails build -platform darwin/universal   # universal binary: Intel + Apple Silicon
+cd build/bin && ditto -c -k --sequesterRsrc --keepParent authors-workshop.app authors-workshop-mac.zip && cd ../..
+gh release create v0.2.0 build/bin/authors-workshop-mac.zip --title "Author's Workshop v0.2.0" --notes "..."
+```
+
+Notes:
+- Build **universal** (`-platform darwin/universal`), not the default arm64-only, so Intel Macs work too.
+- Zip with `ditto` (not `zip`) to preserve the `.app` bundle structure; the asset must keep the name `authors-workshop-mac.zip`.
+- The app is **not** code-signed for distribution (only an Apple Development cert is available, not a Developer ID + notarization), so downloaders hit the "unidentified developer" warning on first open. The README documents the right-click → Open and `xattr -cr` workarounds. Removing the warning entirely would require a paid Apple Developer ID and notarization.
+- Publishing needs `gh` authenticated (`gh auth login`); the zip and `build/bin` are gitignored, so the binary lives only on the Release, never in git.
+
 ## Architecture
 
 ### The Go ⇄ frontend boundary
