@@ -163,7 +163,6 @@ export default function VersionControlSettings({ projectPath }: { projectPath: s
     if (status && !status.available) {
         return (
             <>
-                <h3 className="settings-section">Backup &amp; version history</h3>
                 <p className="subtitle">
                     This feature needs Git, which isn’t installed on this computer. Once Git
                     is installed, reopen this project to use it.
@@ -176,7 +175,6 @@ export default function VersionControlSettings({ projectPath }: { projectPath: s
 
     return (
         <>
-            <h3 className="settings-section">Backup &amp; version history</h3>
             <p className="subtitle">
                 Save snapshots of your book as you write — so you can look back at, or
                 return to, any earlier draft — and back them up to GitHub so your work is

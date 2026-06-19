@@ -51,6 +51,9 @@ export default function CharacterEditor({
     const [mode, setMode] = useState<Mode>("view");
     const [saveState, setSaveState] = useState<SaveState>("idle");
     const [error, setError] = useState("");
+    // Whether the optional pronunciation field is revealed in edit mode. It also
+    // shows whenever a pronunciation is already set.
+    const [showPron, setShowPron] = useState(false);
 
     const saveTimer = useRef<number | undefined>(undefined);
     const charRef = useRef<Character>(emptyCharacter());
@@ -188,6 +191,38 @@ export default function CharacterEditor({
                         placeholder="Character name"
                         spellCheck
                     />
+                    {character.pronunciation.trim() || showPron ? (
+                        <label className="field">
+                            <span className="field-label">Pronunciation</span>
+                            <div className="field-inline">
+                                <input
+                                    className="field-input"
+                                    value={character.pronunciation}
+                                    onChange={(e) => update({ pronunciation: e.target.value })}
+                                    onKeyDown={blurOnEnter}
+                                    placeholder="e.g. KAY-lee · /ˈkeɪli/"
+                                    autoFocus={!character.pronunciation}
+                                />
+                                <button
+                                    className="attr-remove"
+                                    title="Remove pronunciation"
+                                    onClick={() => {
+                                        update({ pronunciation: "" });
+                                        setShowPron(false);
+                                    }}
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                        </label>
+                    ) : (
+                        <button
+                            className="attr-add pron-add"
+                            onClick={() => setShowPron(true)}
+                        >
+                            + Add pronunciation
+                        </button>
+                    )}
                     <label className="field">
                         <span className="field-label">Role</span>
                         <input
@@ -395,6 +430,9 @@ export default function CharacterEditor({
             ) : (
                 <div className="sheet-view">
                     <h1 className="view-name">{character.name.trim() || fallbackName}</h1>
+                    {character.pronunciation.trim() && (
+                        <div className="view-pronunciation">{character.pronunciation}</div>
+                    )}
                     {character.role.trim() && <div className="view-role">{character.role}</div>}
                     {character.bio.trim() && <p className="view-bio">{character.bio}</p>}
 

@@ -450,6 +450,23 @@ func (a *App) WriteOutline(projectPath, content string) error {
 	return writeFileAtomic(filepath.Join(projectPath, outlineFile), []byte(content))
 }
 
+// --- Note Board ---
+
+func (a *App) ReadNoteBoard(projectPath string) (string, error) {
+	data, err := os.ReadFile(filepath.Join(projectPath, noteboardFile))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return defaultNoteboard, nil
+		}
+		return "", err
+	}
+	return string(data), nil
+}
+
+func (a *App) WriteNoteBoard(projectPath, content string) error {
+	return writeFileAtomic(filepath.Join(projectPath, noteboardFile), []byte(content))
+}
+
 // --- Characters ---
 
 func (a *App) ListCharacters(projectPath string) ([]string, error) {

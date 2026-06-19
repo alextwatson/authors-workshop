@@ -1214,6 +1214,40 @@ button.primary:hover {
   color: var(--text);
 }
 
+/* Collapsible settings area: header stays visible, body hidden until opened. */
+.settings-collapsible {
+  margin-top: 32px;
+}
+
+.settings-section-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: none;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.settings-section-toggle:hover {
+  background: none;
+  color: var(--accent);
+}
+
+.settings-chevron {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.settings-collapsible .subtitle {
+  margin-top: 8px;
+}
+
 .export-buttons {
   display: flex;
   flex-wrap: wrap;
@@ -1475,6 +1509,14 @@ button.primary:hover {
   color: var(--accent);
 }
 
+.view-pronunciation {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 15px;
+  color: var(--text-dim);
+  padding-bottom: 2px;
+}
+
 .view-bio {
   margin-top: 16px;
   font-family: var(--font-serif);
@@ -1720,6 +1762,23 @@ button.primary:hover {
 .field-input:focus {
   border-color: var(--accent-dim);
   outline: none;
+}
+
+/* Field input paired with an inline remove button (optional pronunciation). */
+.field-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.field-inline .field-input {
+  flex: 1;
+}
+
+/* The "+ Add pronunciation" toggle sits where a field would, so give it the
+   same top spacing as .field. */
+.pron-add {
+  margin-top: 16px;
 }
 
 .field-textarea {
@@ -2301,4 +2360,187 @@ button.primary:hover {
 .atlas-draft-bar button {
   padding: 4px 10px;
   font-size: 13px;
+}
+
+/* --- Note Board --- */
+/* Reuses .atlas-tool / .atlas-swatch / .atlas-sep / .atlas-save from above. */
+
+.noteboard {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.noteboard-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.noteboard-deflabel {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.noteboard-viewport {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: #0d0d0f;
+  min-height: 0;
+  touch-action: none;
+  cursor: grab;
+}
+
+.noteboard-viewport[data-mode="thread"] {
+  cursor: crosshair;
+}
+
+.noteboard-hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 360px;
+  text-align: center;
+  color: var(--text-dim);
+  pointer-events: none;
+}
+
+.noteboard-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.noteboard-threads {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.noteboard-thread {
+  stroke: var(--text-faint);
+  stroke-width: 2;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+.noteboard-thread.selected {
+  stroke: var(--accent);
+  stroke-width: 3;
+}
+
+.noteboard-thread.draft {
+  stroke: var(--accent);
+  stroke-dasharray: 5 4;
+  pointer-events: none;
+}
+
+.sticky-note {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+  color: #1b1b1b;
+  overflow: hidden;
+}
+
+.sticky-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 22px;
+  padding: 0 5px;
+  cursor: move;
+  flex-shrink: 0;
+  background: rgba(0, 0, 0, 0.07);
+}
+
+.sticky-swatch {
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.35);
+  background: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+}
+
+.sticky-del {
+  padding: 0 4px;
+  border: none;
+  background: transparent;
+  color: rgba(0, 0, 0, 0.5);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.sticky-del:hover {
+  color: #1b1b1b;
+}
+
+.sticky-text {
+  flex: 1;
+  border: none;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: inherit;
+  padding: 6px 8px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.sticky-text::placeholder {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+.sticky-resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  background: linear-gradient(
+    135deg,
+    transparent 50%,
+    rgba(0, 0, 0, 0.28) 50%
+  );
+}
+
+.sticky-palette {
+  position: absolute;
+  top: 24px;
+  left: 5px;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  max-width: 120px;
+  padding: 6px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+/* In thread mode this transparent layer sits over the whole note so a press
+   anywhere on it starts a connection drag (and disables text editing). */
+.sticky-thread-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  cursor: crosshair;
 }

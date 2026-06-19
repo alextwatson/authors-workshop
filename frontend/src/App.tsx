@@ -6,6 +6,7 @@ import ManuscriptView from "./components/views/ManuscriptView";
 import OutlineView from "./components/views/OutlineView";
 import CharactersView from "./components/views/CharactersView";
 import WorldBuildingView from "./components/views/WorldBuildingView";
+import NoteBoardView from "./components/views/NoteBoardView";
 import ProjectSettingsView from "./components/views/ProjectSettingsView";
 import TrashView from "./components/views/TrashView";
 import { resolveFocusSettings } from "./focus";
@@ -83,6 +84,8 @@ export default function App() {
                     <CharactersView project={project} onNavigate={navigate} />
                 ) : section === "worldbuilding" ? (
                     <WorldBuildingView project={project} />
+                ) : section === "noteboard" ? (
+                    <NoteBoardView project={project} />
                 ) : (
                     <div className="view">
                         {section === "trash" && <TrashView />}

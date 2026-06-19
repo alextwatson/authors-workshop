@@ -5,6 +5,9 @@
 
 export interface CodexEntry {
     title: string;
+    // Optional pronunciation guide for the title (e.g. "AZ-er-oth · /ˈæzɛrɒθ/").
+    // Hidden in the editor until the author chooses to add it.
+    pronunciation: string;
     // Free-form, user-defined grouping (e.g. "Magic", "Politics", "Locations").
     // Empty means the entry is shown under "Uncategorized".
     category: string;
@@ -30,6 +33,8 @@ export function parseCodexEntry(json: string): CodexEntry {
         if (data && typeof data === "object") {
             return {
                 title: typeof data.title === "string" ? data.title : "",
+                pronunciation:
+                    typeof data.pronunciation === "string" ? data.pronunciation : "",
                 category: typeof data.category === "string" ? data.category : "",
                 body: typeof data.body === "string" ? data.body : "",
             };
@@ -45,11 +50,11 @@ export function serializeCodexEntry(e: CodexEntry): string {
 }
 
 export function emptyCodexEntry(): CodexEntry {
-    return { title: "", category: "", body: "" };
+    return { title: "", pronunciation: "", category: "", body: "" };
 }
 
 // A freshly created entry with nothing filled in — used to decide whether to
 // open in edit mode (empty) or read-only view mode (has content).
 export function isEmptyCodexEntry(e: CodexEntry): boolean {
-    return !e.title.trim() && !e.category.trim() && !e.body.trim();
+    return !e.title.trim() && !e.pronunciation.trim() && !e.category.trim() && !e.body.trim();
 }

@@ -34,6 +34,9 @@ export default function CodexEditor({ read, write, onSaved, fallbackTitle, categ
     const [mode, setMode] = useState<Mode>("view");
     const [saveState, setSaveState] = useState<SaveState>("idle");
     const [error, setError] = useState("");
+    // Whether the optional pronunciation field is revealed in edit mode. It also
+    // shows whenever a pronunciation is already set.
+    const [showPron, setShowPron] = useState(false);
 
     const saveTimer = useRef<number | undefined>(undefined);
     const entryRef = useRef<CodexEntry>(emptyCodexEntry());
@@ -149,6 +152,38 @@ export default function CodexEditor({ read, write, onSaved, fallbackTitle, categ
                         placeholder="Entry title"
                         spellCheck
                     />
+                    {entry.pronunciation.trim() || showPron ? (
+                        <label className="field">
+                            <span className="field-label">Pronunciation</span>
+                            <div className="field-inline">
+                                <input
+                                    className="field-input"
+                                    value={entry.pronunciation}
+                                    onChange={(e) => update({ pronunciation: e.target.value })}
+                                    onKeyDown={blurOnEnter}
+                                    placeholder="e.g. AZ-er-oth · /ˈæzɛrɒθ/"
+                                    autoFocus={!entry.pronunciation}
+                                />
+                                <button
+                                    className="attr-remove"
+                                    title="Remove pronunciation"
+                                    onClick={() => {
+                                        update({ pronunciation: "" });
+                                        setShowPron(false);
+                                    }}
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                        </label>
+                    ) : (
+                        <button
+                            className="attr-add pron-add"
+                            onClick={() => setShowPron(true)}
+                        >
+                            + Add pronunciation
+                        </button>
+                    )}
                     <label className="field">
                         <span className="field-label">Category</span>
                         <input
@@ -180,6 +215,9 @@ export default function CodexEditor({ read, write, onSaved, fallbackTitle, categ
             ) : (
                 <div className="sheet-view">
                     <h1 className="view-name">{entry.title.trim() || fallbackTitle}</h1>
+                    {entry.pronunciation.trim() && (
+                        <div className="view-pronunciation">{entry.pronunciation}</div>
+                    )}
                     {entry.category.trim() && (
                         <div className="view-role">{entry.category}</div>
                     )}

@@ -81,19 +81,21 @@ type ChapterInfo struct {
 }
 
 const (
-	projectFile     = "project.json"
-	manuscriptDir   = "manuscript"
-	scenesSubdir    = "scenes"
-	charactersDir   = "characters"
-	worldDir        = "worldbuilding"
-	codexDir        = "codex"
-	mapsDir         = "maps"
-	atlasFile       = "atlas.json"
-	defaultAtlas    = "{\n  \"version\": 1,\n  \"mapImage\": \"\",\n  \"pins\": [],\n  \"regions\": []\n}\n"
-	outlineFile     = "outline.json"
-	defaultOutline  = "{\n  \"version\": 1,\n  \"nodes\": []\n}\n"
-	defaultLocation = "{\n  \"locations\": []\n}\n"
-	defaultLore     = "{\n  \"entries\": []\n}\n"
+	projectFile      = "project.json"
+	manuscriptDir    = "manuscript"
+	scenesSubdir     = "scenes"
+	charactersDir    = "characters"
+	worldDir         = "worldbuilding"
+	codexDir         = "codex"
+	mapsDir          = "maps"
+	atlasFile        = "atlas.json"
+	defaultAtlas     = "{\n  \"version\": 1,\n  \"mapImage\": \"\",\n  \"pins\": [],\n  \"regions\": []\n}\n"
+	outlineFile      = "outline.json"
+	defaultOutline   = "{\n  \"version\": 1,\n  \"nodes\": []\n}\n"
+	defaultLocation  = "{\n  \"locations\": []\n}\n"
+	defaultLore      = "{\n  \"entries\": []\n}\n"
+	noteboardFile    = "noteboard.json"
+	defaultNoteboard = "{\n  \"version\": 1,\n  \"defaultColor\": \"#bfbfbf\",\n  \"notes\": [],\n  \"threads\": []\n}\n"
 )
 
 var slugPattern = regexp.MustCompile(`[^a-z0-9]+`)
@@ -176,6 +178,7 @@ func scaffoldProject(dir string, meta ProjectMeta) error {
 	}
 	files := map[string]string{
 		filepath.Join(dir, outlineFile):                    defaultOutline,
+		filepath.Join(dir, noteboardFile):                  defaultNoteboard,
 		filepath.Join(dir, worldDir, "locations.json"):     defaultLocation,
 		filepath.Join(dir, worldDir, "lore.json"):          defaultLore,
 		filepath.Join(dir, manuscriptDir, "chapter-01.md"): "# Chapter 1\n\n",

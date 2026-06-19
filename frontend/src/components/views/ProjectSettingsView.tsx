@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import {
     ExportManuscript,
     SaveProjectMeta,
@@ -146,7 +146,7 @@ export default function ProjectSettingsView({ project, onMetaSaved }: Props) {
                 </div>
             </div>
 
-            <h3 className="settings-section">Focus mode</h3>
+            <CollapsibleSection title="Focus mode">
             <p className="subtitle">
                 What focus mode does. Use the ⓘ on any setting to keep it on all the time,
                 even when you're not in focus mode.
@@ -191,8 +191,9 @@ export default function ProjectSettingsView({ project, onMetaSaved }: Props) {
                     </div>
                 ))}
             </div>
+            </CollapsibleSection>
 
-            <h3 className="settings-section">Manuscript format</h3>
+            <CollapsibleSection title="Manuscript format">
             <p className="subtitle">
                 How chapter and scene files are stored on disk. Switching converts every
                 existing file.
@@ -221,8 +222,9 @@ export default function ProjectSettingsView({ project, onMetaSaved }: Props) {
                 {formatBusy && <div className="save-status saving">Converting…</div>}
                 {formatError && <div className="save-status error">{formatError}</div>}
             </div>
+            </CollapsibleSection>
 
-            <h3 className="settings-section">Export manuscript</h3>
+            <CollapsibleSection title="Export manuscript">
             <p className="subtitle">
                 Stitch every chapter, in order, into a single file — independent of how it’s
                 stored.
@@ -238,9 +240,34 @@ export default function ProjectSettingsView({ project, onMetaSaved }: Props) {
                 </div>
                 {exportMsg && <div className="save-status">{exportMsg}</div>}
             </div>
+            </CollapsibleSection>
 
-            <VersionControlSettings projectPath={project.path} />
+            <CollapsibleSection title="Backup & version history">
+                <VersionControlSettings projectPath={project.path} />
+            </CollapsibleSection>
         </>
+    );
+}
+
+// A settings area that stays hidden behind its header until the writer opens it,
+// keeping the settings screen calm and uncluttered.
+function CollapsibleSection({ title, children }: { title: string; children: ReactNode }) {
+    const [open, setOpen] = useState(false);
+    return (
+        <div className="settings-collapsible">
+            <button
+                type="button"
+                className="settings-section-toggle"
+                aria-expanded={open}
+                onClick={() => setOpen((v) => !v)}
+            >
+                <span className="settings-chevron" aria-hidden>
+                    {open ? "▾" : "▸"}
+                </span>
+                {title}
+            </button>
+            {open && children}
+        </div>
     );
 }
 

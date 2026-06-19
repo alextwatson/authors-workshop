@@ -3,6 +3,7 @@ export type Section =
     | "outline"
     | "characters"
     | "worldbuilding"
+    | "noteboard"
     | "settings"
     | "trash";
 
@@ -11,6 +12,7 @@ const NAV_ITEMS: { key: Section; label: string }[] = [
     { key: "outline", label: "Outline" },
     { key: "characters", label: "Characters" },
     { key: "worldbuilding", label: "World Building" },
+    { key: "noteboard", label: "Note Board" },
 ];
 
 interface Props {

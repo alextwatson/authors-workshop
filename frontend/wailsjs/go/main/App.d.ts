@@ -70,6 +70,8 @@ export function ReadCodexEntry(arg1:string,arg2:string):Promise<string>;
 
 export function ReadMapImage(arg1:string,arg2:string):Promise<string>;
 
+export function ReadNoteBoard(arg1:string):Promise<string>;
+
 export function ReadOutline(arg1:string):Promise<string>;
 
 export function ReadScene(arg1:string,arg2:string):Promise<string>;
@@ -93,6 +95,8 @@ export function WriteChapter(arg1:string,arg2:string,arg3:string):Promise<void>;
 export function WriteCharacter(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function WriteCodexEntry(arg1:string,arg2:string,arg3:string):Promise<void>;
+
+export function WriteNoteBoard(arg1:string,arg2:string):Promise<void>;
 
 export function WriteOutline(arg1:string,arg2:string):Promise<void>;
 

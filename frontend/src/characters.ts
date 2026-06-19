@@ -27,6 +27,9 @@ export interface ArcPoint {
 
 export interface Character {
     name: string;
+    // Optional pronunciation guide for the name (e.g. "KAY-lee · /ˈkeɪli/").
+    // Hidden in the editor until the author chooses to add it.
+    pronunciation: string;
     role: string;
     bio: string;
     attrs: CharAttr[];
@@ -68,6 +71,8 @@ export function parseCharacter(json: string): Character {
         if (data && typeof data === "object") {
             return {
                 name: typeof data.name === "string" ? data.name : "",
+                pronunciation:
+                    typeof data.pronunciation === "string" ? data.pronunciation : "",
                 role: typeof data.role === "string" ? data.role : "",
                 bio: typeof data.bio === "string" ? data.bio : "",
                 attrs: Array.isArray(data.attrs)
@@ -93,7 +98,7 @@ export function serializeCharacter(c: Character): string {
 }
 
 export function emptyCharacter(): Character {
-    return { name: "", role: "", bio: "", attrs: [], arc: [] };
+    return { name: "", pronunciation: "", role: "", bio: "", attrs: [], arc: [] };
 }
 
 // A freshly created sheet with nothing filled in yet — used to decide whether
@@ -101,6 +106,7 @@ export function emptyCharacter(): Character {
 export function isEmptyCharacter(c: Character): boolean {
     return (
         !c.name.trim() &&
+        !c.pronunciation.trim() &&
         !c.role.trim() &&
         !c.bio.trim() &&
         c.attrs.length === 0 &&

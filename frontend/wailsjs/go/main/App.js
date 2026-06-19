@@ -138,6 +138,10 @@ export function ReadMapImage(arg1, arg2) {
   return window['go']['main']['App']['ReadMapImage'](arg1, arg2);
 }
 
+export function ReadNoteBoard(arg1) {
+  return window['go']['main']['App']['ReadNoteBoard'](arg1);
+}
+
 export function ReadOutline(arg1) {
   return window['go']['main']['App']['ReadOutline'](arg1);
 }
@@ -184,6 +188,10 @@ export function WriteCharacter(arg1, arg2, arg3) {
 
 export function WriteCodexEntry(arg1, arg2, arg3) {
   return window['go']['main']['App']['WriteCodexEntry'](arg1, arg2, arg3);
+}
+
+export function WriteNoteBoard(arg1, arg2) {
+  return window['go']['main']['App']['WriteNoteBoard'](arg1, arg2);
 }
 
 export function WriteOutline(arg1, arg2) {
