@@ -2,6 +2,19 @@
 
 A distraction-free desktop writing tool for authors to write, outline, and build their story world. Built with [Wails v2](https://wails.io) (Go backend) and React + TypeScript.
 
+## Download (macOS)
+
+**[⬇ Download the latest Mac version](https://github.com/alextwatson/authors-workshop/releases/latest/download/authors-workshop-mac.zip)** — a universal build that runs on both Apple Silicon and Intel Macs.
+
+1. Unzip and drag **Author's Workshop** into your **Applications** folder.
+2. The first time you open it, macOS will warn that the app is from an unidentified developer (it isn't notarized by Apple). To get past this, **right-click the app → Open**, then click **Open** in the dialog. You only need to do this once.
+
+> If you instead see *"Author's Workshop is damaged and can't be opened,"* run this once in Terminal to clear the quarantine flag, then open it normally:
+>
+> ```sh
+> xattr -cr /Applications/authors-workshop.app
+> ```
+
 ## How it stores data
 
 No database. Each project is a plain folder of flat files you can open, sync, and back up however you like:
