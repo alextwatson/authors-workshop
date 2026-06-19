@@ -663,6 +663,30 @@ func (a *App) ImportMapImage(projectPath string) (string, error) {
 	return stored, nil
 }
 
+// ImportNotesText opens a native file picker for a plain-text file and returns
+// its contents (empty if cancelled). The frontend splits it into one sticky
+// note per line.
+func (a *App) ImportNotesText() (string, error) {
+	selected, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Choose a notes file",
+		Filters: []runtime.FileFilter{{
+			DisplayName: "Text files (*.txt;*.md;*.markdown;*.csv)",
+			Pattern:     "*.txt;*.md;*.markdown;*.csv",
+		}},
+	})
+	if err != nil {
+		return "", err
+	}
+	if selected == "" {
+		return "", nil // user cancelled
+	}
+	data, err := os.ReadFile(selected)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
 // ReadMapImage returns the stored map image as a data: URL the frontend can
 // drop straight into an <img src>.
 func (a *App) ReadMapImage(projectPath, filename string) (string, error) {

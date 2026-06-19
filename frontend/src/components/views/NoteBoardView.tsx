@@ -1,8 +1,11 @@
 import { PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
-import { ReadNoteBoard, WriteNoteBoard } from "../../../wailsjs/go/main/App";
+import { ImportNotesText, ReadNoteBoard, WriteNoteBoard } from "../../../wailsjs/go/main/App";
 import { main } from "../../../wailsjs/go/models";
 import {
+    BOARD_H,
+    BOARD_W,
     emptyBoard,
+    GRID_SIZE,
     MIN_NOTE_H,
     MIN_NOTE_W,
     NOTE_COLORS,
@@ -44,7 +47,6 @@ export default function NoteBoardView({ project }: Props) {
     const [loaded, setLoaded] = useState(false);
     const [board, setBoard] = useState<NoteBoard>(emptyBoard);
     const [view, setView] = useState<View>({ zoom: 1, x: 0, y: 0 });
-    const [threadMode, setThreadMode] = useState(false);
     // While drawing a thread, the live cursor position in board coords.
     const [threadCursor, setThreadCursor] = useState<{ x: number; y: number } | null>(null);
     // The currently selected thread (for deletion) and the open colour palette.
@@ -148,6 +150,14 @@ export default function NoteBoardView({ project }: Props) {
 
     // --- view helpers ---
 
+    // Keep a note's top-left inside the finite board given its size.
+    function clampXY(x: number, y: number, w: number, h: number) {
+        return {
+            x: Math.round(Math.max(0, Math.min(BOARD_W - w, x))),
+            y: Math.round(Math.max(0, Math.min(BOARD_H - h, y))),
+        };
+    }
+
     function screenToBoard(clientX: number, clientY: number) {
         const rect = viewportRef.current!.getBoundingClientRect();
         const v = viewRef.current;
@@ -184,19 +194,70 @@ export default function NoteBoardView({ project }: Props) {
             ? screenToBoard(r.left + r.width / 2, r.top + r.height / 2)
             : { x: 0, y: 0 };
         const id = newId();
+        const pos = clampXY(center.x - NOTE_W / 2, center.y - NOTE_H / 2, NOTE_W, NOTE_H);
         mutate((b) => ({
             ...b,
             notes: [
                 ...b.notes,
                 {
                     id,
-                    x: Math.round(center.x - NOTE_W / 2),
-                    y: Math.round(center.y - NOTE_H / 2),
+                    x: pos.x,
+                    y: pos.y,
                     w: NOTE_W,
                     h: NOTE_H,
                     color: b.defaultColor,
                     text: "",
                 },
+            ],
+        }));
+    }
+
+    // Pull in a plain-text file and turn each non-empty line into a sticky
+    // note, laid out in a grid so they don't all stack on one spot.
+    async function importNotes() {
+        let text: string;
+        try {
+            text = await ImportNotesText();
+        } catch (err) {
+            setError(String(err));
+            setSaveState("error");
+            return;
+        }
+        const lines = text
+            .split(/\r?\n/)
+            .map((l) => l.trim())
+            .filter((l) => l.length > 0);
+        if (lines.length === 0) return;
+
+        const vp = viewportRef.current;
+        const r = vp?.getBoundingClientRect();
+        const origin = r
+            ? screenToBoard(r.left + 40, r.top + 40)
+            : { x: 0, y: 0 };
+        const gapX = NOTE_W + 24;
+        const gapY = NOTE_H + 24;
+        const cols = Math.max(1, Math.ceil(Math.sqrt(lines.length)));
+        mutate((b) => ({
+            ...b,
+            notes: [
+                ...b.notes,
+                ...lines.map((text, i) => {
+                    const pos = clampXY(
+                        origin.x + (i % cols) * gapX,
+                        origin.y + Math.floor(i / cols) * gapY,
+                        NOTE_W,
+                        NOTE_H
+                    );
+                    return {
+                        id: newId(),
+                        x: pos.x,
+                        y: pos.y,
+                        w: NOTE_W,
+                        h: NOTE_H,
+                        color: b.defaultColor,
+                        text,
+                    };
+                }),
             ],
         }));
     }
@@ -269,10 +330,9 @@ export default function NoteBoardView({ project }: Props) {
         const d = dragRef.current;
         if (d?.kind !== "move" || d.pid !== e.pointerId) return;
         const z = viewRef.current.zoom;
-        updateNote(d.noteId, {
-            x: Math.round(d.ox + (e.clientX - d.sx) / z),
-            y: Math.round(d.oy + (e.clientY - d.sy) / z),
-        });
+        const n = boardRef.current.notes.find((x) => x.id === d.noteId);
+        if (!n) return;
+        updateNote(d.noteId, clampXY(d.ox + (e.clientX - d.sx) / z, d.oy + (e.clientY - d.sy) / z, n.w, n.h));
     }
 
     // --- note resize ---
@@ -295,9 +355,15 @@ export default function NoteBoardView({ project }: Props) {
         const d = dragRef.current;
         if (d?.kind !== "resize" || d.pid !== e.pointerId) return;
         const z = viewRef.current.zoom;
+        const n = boardRef.current.notes.find((x) => x.id === d.noteId);
+        if (!n) return;
         updateNote(d.noteId, {
-            w: Math.round(Math.max(MIN_NOTE_W, d.ow + (e.clientX - d.sx) / z)),
-            h: Math.round(Math.max(MIN_NOTE_H, d.oh + (e.clientY - d.sy) / z)),
+            w: Math.round(
+                Math.min(BOARD_W - n.x, Math.max(MIN_NOTE_W, d.ow + (e.clientX - d.sx) / z))
+            ),
+            h: Math.round(
+                Math.min(BOARD_H - n.y, Math.max(MIN_NOTE_H, d.oh + (e.clientY - d.sy) / z))
+            ),
         });
     }
 
@@ -305,6 +371,7 @@ export default function NoteBoardView({ project }: Props) {
 
     function startThread(e: ReactPointerEvent<HTMLDivElement>, n: StickyNote) {
         e.stopPropagation();
+        e.preventDefault(); // don't start a text selection from the drag
         e.currentTarget.setPointerCapture?.(e.pointerId);
         dragRef.current = { kind: "thread", pid: e.pointerId, fromId: n.id };
         const p = screenToBoard(e.clientX, e.clientY);
@@ -362,21 +429,10 @@ export default function NoteBoardView({ project }: Props) {
         : null;
 
     return (
-        <div className="noteboard">
+        <div className={`noteboard ${threadCursor ? "drawing-thread" : ""}`}>
             <div className="noteboard-toolbar">
                 <button className="atlas-tool" onClick={addNote}>
                     + Sticky note
-                </button>
-                <button
-                    className={`atlas-tool ${threadMode ? "active" : ""}`}
-                    title="Drag from one note to another to connect them"
-                    onClick={() => {
-                        setThreadMode((v) => !v);
-                        setSelThread(null);
-                        setPalette(null);
-                    }}
-                >
-                    + Thread
                 </button>
                 <span className="atlas-sep" />
                 <span className="noteboard-deflabel">New note color</span>
@@ -405,6 +461,14 @@ export default function NoteBoardView({ project }: Props) {
                 >
                     Reset
                 </button>
+                <span className="atlas-sep" />
+                <button
+                    className="atlas-tool"
+                    title="Import a text file — each line becomes a note"
+                    onClick={importNotes}
+                >
+                    Import notes
+                </button>
                 <span className={`atlas-save save-status ${saveState}`}>
                     {saveState === "unsaved" && "Saving…"}
                     {saveState === "saved" && "Saved"}
@@ -415,7 +479,6 @@ export default function NoteBoardView({ project }: Props) {
             <div
                 className="noteboard-viewport"
                 ref={viewportRef}
-                data-mode={threadMode ? "thread" : "select"}
                 onPointerDown={onPointerDown}
                 onPointerMove={onPointerMove}
                 onPointerUp={onPointerUp}
@@ -423,13 +486,16 @@ export default function NoteBoardView({ project }: Props) {
             >
                 {board.notes.length === 0 && (
                     <div className="noteboard-hint">
-                        Add a sticky note to start pinning ideas, then drag from note to note with
-                        “+ Thread” to connect them.
+                        Add a sticky note to start pinning ideas, then drag the squiggle in a
+                        note’s bottom-left corner to another note to connect them.
                     </div>
                 )}
                 <div
                     className="noteboard-canvas"
                     style={{
+                        width: BOARD_W,
+                        height: BOARD_H,
+                        backgroundSize: `${GRID_SIZE}px ${GRID_SIZE}px`,
                         transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`,
                         transformOrigin: "0 0",
                     }}
@@ -443,20 +509,38 @@ export default function NoteBoardView({ project }: Props) {
                             if (!a || !b) return null;
                             const ca = center(a);
                             const cb = center(b);
+                            const select = (e: React.MouseEvent) => {
+                                e.stopPropagation();
+                                setSelThread(t.id);
+                            };
+                            // Stop the pointer-down from reaching the viewport,
+                            // which would capture the pointer for panning and
+                            // steal the click that selects this thread.
+                            const grab = (e: React.PointerEvent) => e.stopPropagation();
                             return (
-                                <line
-                                    key={t.id}
-                                    className={`noteboard-thread ${selThread === t.id ? "selected" : ""}`}
-                                    x1={ca.x}
-                                    y1={ca.y}
-                                    x2={cb.x}
-                                    y2={cb.y}
-                                    vectorEffect="non-scaling-stroke"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSelThread(t.id);
-                                    }}
-                                />
+                                <g key={t.id}>
+                                    {/* Wide, invisible line so the thin thread is
+                                        easy to click. */}
+                                    <line
+                                        className="noteboard-thread-hit"
+                                        x1={ca.x}
+                                        y1={ca.y}
+                                        x2={cb.x}
+                                        y2={cb.y}
+                                        onPointerDown={grab}
+                                        onClick={select}
+                                    />
+                                    <line
+                                        className={`noteboard-thread ${selThread === t.id ? "selected" : ""}`}
+                                        x1={ca.x}
+                                        y1={ca.y}
+                                        x2={cb.x}
+                                        y2={cb.y}
+                                        vectorEffect="non-scaling-stroke"
+                                        onPointerDown={grab}
+                                        onClick={select}
+                                    />
+                                </g>
                             );
                         })}
                         {threadFrom && threadCursor && (
@@ -470,6 +554,37 @@ export default function NoteBoardView({ project }: Props) {
                             />
                         )}
                     </svg>
+
+                    {/* Delete button for the selected thread, parked at its
+                        midpoint. Counter-scaled so it stays a constant size. */}
+                    {(() => {
+                        if (!selThread) return null;
+                        const t = board.threads.find((x) => x.id === selThread);
+                        if (!t) return null;
+                        const a = noteById(t.from);
+                        const b = noteById(t.to);
+                        if (!a || !b) return null;
+                        const mx = (center(a).x + center(b).x) / 2;
+                        const my = (center(a).y + center(b).y) / 2;
+                        return (
+                            <button
+                                className="noteboard-thread-del"
+                                title="Delete thread"
+                                style={{
+                                    left: mx,
+                                    top: my,
+                                    transform: `translate(-50%, -50%) scale(${1 / view.zoom})`,
+                                }}
+                                onPointerDown={stop}
+                                onClick={(e) => {
+                                    stop(e);
+                                    deleteThread(selThread);
+                                }}
+                            >
+                                ✕
+                            </button>
+                        );
+                    })()}
 
                     {board.notes.map((n) => (
                         <div
@@ -540,14 +655,23 @@ export default function NoteBoardView({ project }: Props) {
                                     ))}
                                 </div>
                             )}
-                            {threadMode && (
-                                <div
-                                    className="sticky-thread-overlay"
-                                    onPointerDown={(e) => startThread(e, n)}
-                                    onPointerMove={onThreadMove}
-                                    onPointerUp={endThread}
-                                />
-                            )}
+                            <div
+                                className="sticky-thread-handle"
+                                title="Drag to another note to connect"
+                                onPointerDown={(e) => startThread(e, n)}
+                                onPointerMove={onThreadMove}
+                                onPointerUp={endThread}
+                            >
+                                <svg viewBox="0 0 26 12" aria-hidden="true">
+                                    <path
+                                        d="M2 6 q3 -5 6 0 t6 0 t6 0 t6 0"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="2"
+                                        strokeLinecap="round"
+                                    />
+                                </svg>
+                            </div>
                         </div>
                     ))}
                 </div>

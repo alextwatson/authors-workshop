@@ -2397,7 +2397,12 @@ button.primary:hover {
   cursor: grab;
 }
 
-.noteboard-viewport[data-mode="thread"] {
+/* While dragging a thread, suppress text selection across the whole board so
+   the gesture can't accidentally highlight note text. */
+.noteboard.drawing-thread,
+.noteboard.drawing-thread * {
+  user-select: none;
+  -webkit-user-select: none;
   cursor: crosshair;
 }
 
@@ -2416,6 +2421,16 @@ button.primary:hover {
   position: absolute;
   top: 0;
   left: 0;
+  background-color: #131316;
+  /* A dot at each grid intersection: a small filled circle, transparent
+     everywhere else. Size set inline to GRID_SIZE so dots form even squares. */
+  background-image: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.18) 1.4px,
+    transparent 1.5px
+  );
+  border: 1px solid var(--border);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
 }
 
 .noteboard-threads {
@@ -2431,6 +2446,35 @@ button.primary:hover {
   stroke-width: 2;
   pointer-events: stroke;
   cursor: pointer;
+}
+
+/* Invisible, fat click target layered under each thread. */
+.noteboard-thread-hit {
+  stroke: transparent;
+  stroke-width: 16;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+.noteboard-thread-del {
+  position: absolute;
+  z-index: 6;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg-raised);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.noteboard-thread-del:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .noteboard-thread.selected {
@@ -2536,11 +2580,28 @@ button.primary:hover {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
 
-/* In thread mode this transparent layer sits over the whole note so a press
-   anywhere on it starts a connection drag (and disables text editing). */
-.sticky-thread-overlay {
+/* Squiggle handle in the bottom-left corner of every note. Press and drag from
+   it to another note to draw a connecting thread. */
+.sticky-thread-handle {
   position: absolute;
-  inset: 0;
+  left: 2px;
+  bottom: 2px;
   z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 16px;
+  color: rgba(0, 0, 0, 0.35);
   cursor: crosshair;
+}
+
+.sticky-thread-handle:hover {
+  color: #1b1b1b;
+}
+
+.sticky-thread-handle svg {
+  width: 18px;
+  height: 9px;
+  pointer-events: none;
 }

@@ -78,6 +78,10 @@ export function ImportMapImage(arg1) {
   return window['go']['main']['App']['ImportMapImage'](arg1);
 }
 
+export function ImportNotesText() {
+  return window['go']['main']['App']['ImportNotesText']();
+}
+
 export function ListChapters(arg1) {
   return window['go']['main']['App']['ListChapters'](arg1);
 }

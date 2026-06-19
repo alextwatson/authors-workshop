@@ -40,6 +40,8 @@ export function GitStatus(arg1:string):Promise<main.GitState>;
 
 export function ImportMapImage(arg1:string):Promise<string>;
 
+export function ImportNotesText():Promise<string>;
+
 export function ListChapters(arg1:string):Promise<Array<main.ChapterInfo>>;
 
 export function ListCharacters(arg1:string):Promise<Array<string>>;

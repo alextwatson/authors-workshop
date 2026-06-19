@@ -26,6 +26,13 @@ export const NOTE_H = 160;
 export const MIN_NOTE_W = 120;
 export const MIN_NOTE_H = 90;
 
+// The board is a finite area (in board px). Notes are clamped to stay inside
+// it, and the dot-grid background spans exactly this size. GRID_SIZE is the
+// spacing between dots, so the dots mark the corners of GRID_SIZE squares.
+export const BOARD_W = 5000;
+export const BOARD_H = 3500;
+export const GRID_SIZE = 72;
+
 export interface StickyNote {
     id: string;
     x: number; // board px
