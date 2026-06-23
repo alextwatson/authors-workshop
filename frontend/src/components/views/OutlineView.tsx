@@ -15,7 +15,7 @@ import {
     WriteScene,
 } from "../../../wailsjs/go/main/App";
 import { main } from "../../../wailsjs/go/models";
-import DocEditor, { countWords, parseDoc, serializeDoc } from "../DocEditor";
+import DocEditor, { serializeDoc } from "../DocEditor";
 import { newId, nextNumberedFilename } from "../../docnames";
 import { blurOnEnter } from "../../ui";
 import {
@@ -40,14 +40,6 @@ type SaveState = "idle" | "unsaved" | "saved" | "error";
 
 const AUTOSAVE_DELAY_MS = 800;
 const SWATCHES: TagColor[] = ["dark", "green", "orange"];
-const NOTE_WORD_CAP = 40;
-
-// Cut text off at the end of the nth word, preserving internal whitespace.
-function limitWords(text: string, cap: number): string {
-    if (countWords(text) <= cap) return text;
-    const match = text.match(new RegExp(`^(?:\\s*\\S+){1,${cap}}`));
-    return match ? match[0] : text;
-}
 
 function autoGrow(el: HTMLTextAreaElement | null) {
     if (!el) return;
@@ -385,39 +377,12 @@ export default function OutlineView({ project, focusId }: Props) {
         }
     }
 
-    // Replace a story point with a scene document seeded from its title and note.
-    async function convertToScene(node: OutlineNode) {
-        try {
-            const file = await createDoc("scene", node.title, node.note ? node.note + "\n" : "");
-            patchNode(node.id, { kind: "scene", file, note: "" });
-            setEditing({ kind: "scene", file });
-        } catch (err) {
-            setError(String(err));
-        }
-    }
-
     // Move the scene's file into the chapters folder and update its outline ref.
     async function makeChapter(n: OutlineNode) {
         try {
             const newName = await PromoteSceneToChapter(project.path, n.file);
             patchNode(n.id, { kind: "chapter", file: newName });
             await refreshLists();
-        } catch (err) {
-            setError(String(err));
-        }
-    }
-
-    // Replace a short scene with a story point carrying its title and text.
-    async function convertToPoint(node: OutlineNode) {
-        try {
-            const content = await ReadScene(project.path, node.file);
-            const parsed = parseDoc(content, format);
-            patchNode(node.id, {
-                kind: "point",
-                title: parsed.title || node.title,
-                note: limitWords(parsed.body.trim(), NOTE_WORD_CAP),
-                file: "",
-            });
         } catch (err) {
             setError(String(err));
         }
@@ -628,11 +593,6 @@ export default function OutlineView({ project, focusId }: Props) {
                     <span className="editor-bar-label">
                         {editing.kind === "scene" ? "◇ Scene" : "§ Chapter"} · {path}
                     </span>
-                    {editing.kind === "scene" && (
-                        <span className="editor-bar-hint">
-                            Keep it under {NOTE_WORD_CAP} words to be able to revert it to a story point
-                        </span>
-                    )}
                 </div>
                 <div className="editor-pane">
                     <DocEditor
@@ -846,27 +806,12 @@ export default function OutlineView({ project, focusId }: Props) {
                                             placeholder="Notes…"
                                             rows={1}
                                             onChange={(e) => {
-                                                patchNode(n.id, {
-                                                    note: limitWords(e.target.value, NOTE_WORD_CAP),
-                                                });
+                                                patchNode(n.id, { note: e.target.value });
                                                 autoGrow(e.target);
                                             }}
                                         />
-                                        <div
-                                            className={`op-count ${
-                                                countWords(n.note) >= NOTE_WORD_CAP ? "at-cap" : ""
-                                            }`}
-                                        >
-                                            {countWords(n.note)}/{NOTE_WORD_CAP} words
-                                        </div>
                                         {tagRow(n)}
                                         <div className="card-actions">
-                                            <button
-                                                onClick={() => convertToScene(n)}
-                                                title={`Scenes under ${NOTE_WORD_CAP} words can be turned back into story points`}
-                                            >
-                                                make scene
-                                            </button>
                                             <button onClick={() => addArm(n.id, "scene")}>+ scene arm</button>
                                             <button onClick={() => addArm(n.id, "chapter")}>+ chapter arm</button>
                                             <button className="danger" onClick={() => deleteNode(n.id)}>
@@ -915,13 +860,6 @@ export default function OutlineView({ project, focusId }: Props) {
                                         </button>
                                         {tagRow(n)}
                                         <div className="card-actions">
-                                            {n.kind === "scene" &&
-                                                (docInfo({ kind: "scene", file: n.file })?.wordCount ?? 0) <
-                                                    NOTE_WORD_CAP && (
-                                                    <button onClick={() => convertToPoint(n)}>
-                                                        make story point
-                                                    </button>
-                                                )}
                                             {n.kind === "scene" && (
                                                 <button
                                                     title="Move the file to chapters"
