@@ -226,7 +226,8 @@ func (a *App) GitClone(url string) (*Project, error) {
 		return nil, fmt.Errorf("a folder named %q already exists there", name)
 	}
 	if _, err := runGit(parent, "clone", url, name); err != nil {
-		return nil, err
+		os.RemoveAll(dest) // git may leave a partial dir behind on a failed clone
+		return nil, friendlyCloneError(url, err)
 	}
 	meta, err := readProjectMeta(dest)
 	if err != nil {
@@ -282,6 +283,49 @@ func friendlyAuthError(err error) error {
 		strings.Contains(msg, "Authentication failed") ||
 		strings.Contains(msg, "terminal prompts disabled") {
 		return fmt.Errorf("couldn’t reach GitHub — you may need to sign in again under “Back up to GitHub”.\n\n%s", msg)
+	}
+	return err
+}
+
+// friendlyCloneError turns git clone's terse failures into a concrete next step.
+// The two that trip writers up most are using an HTTPS URL for a private repo
+// (this app can't show a sign-in prompt) and not having an SSH key on GitHub.
+func friendlyCloneError(url string, err error) error {
+	msg := err.Error()
+	isSSH := strings.HasPrefix(url, "git@") || strings.HasPrefix(url, "ssh://")
+
+	switch {
+	// HTTPS auth: git wanted a username/password but can't prompt from a GUI app.
+	case strings.Contains(msg, "could not read Username") ||
+		strings.Contains(msg, "terminal prompts disabled") ||
+		strings.Contains(msg, "Authentication failed"):
+		return fmt.Errorf("couldn’t sign in to that repository. For a private repository, use an SSH URL like git@github.com:you/your-novel.git — this app can’t enter a password for an https:// URL. Make sure an SSH key for this Mac is added to your GitHub account.\n\n%s", msg)
+
+	// SSH key present but GitHub rejected it (not added, or no access to this repo).
+	case strings.Contains(msg, "Permission denied (publickey)") ||
+		strings.Contains(msg, "publickey"):
+		return fmt.Errorf("GitHub refused this Mac’s SSH key. Add the key to your GitHub account under Settings → SSH and GPG keys, and check that your account can access this repository.\n\n%s", msg)
+
+	// First-ever connection to a host whose key isn't in known_hosts yet.
+	case strings.Contains(msg, "Host key verification failed"):
+		return fmt.Errorf("couldn’t verify the server’s identity. Open Terminal and run “ssh -T git@github.com” once to confirm the connection, then try again.\n\n%s", msg)
+
+	// Wrong URL, or a private repo this account can't see (GitHub hides which).
+	case strings.Contains(msg, "not found") ||
+		strings.Contains(msg, "does not exist") ||
+		strings.Contains(msg, "not read from remote repository"):
+		hint := "Check the URL is correct and that your GitHub account has access to it."
+		if !isSSH && strings.Contains(url, "github.com") {
+			hint = "Check the URL, and for a private repository use an SSH URL (git@github.com:you/your-novel.git) so this app can authenticate."
+		}
+		return fmt.Errorf("couldn’t find that repository. %s\n\n%s", hint, msg)
+
+	// No network / bad host.
+	case strings.Contains(msg, "Could not resolve host") ||
+		strings.Contains(msg, "unable to access") ||
+		strings.Contains(msg, "Connection refused") ||
+		strings.Contains(msg, "Connection timed out"):
+		return fmt.Errorf("couldn’t reach the server. Check your internet connection and that the URL is correct.\n\n%s", msg)
 	}
 	return err
 }

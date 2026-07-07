@@ -79,7 +79,7 @@ export default function StartupScreen({ onProjectReady }: Props) {
                 <form onSubmit={handleClone}>
                     <input
                         autoFocus
-                        placeholder="GitHub repository URL, e.g. https://github.com/you/my-novel.git"
+                        placeholder="Repository URL, e.g. git@github.com:you/my-novel.git"
                         value={cloneUrl}
                         onChange={(e) => setCloneUrl(e.target.value)}
                         disabled={busy}
