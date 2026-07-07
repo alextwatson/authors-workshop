@@ -11,7 +11,7 @@ import {
 import { main } from "../../../wailsjs/go/models";
 import { emptyCharacter, parseCharacter, serializeCharacter } from "../../characters";
 import { nextNumberedJson } from "../../docnames";
-import { parseOutline } from "../../outline";
+import { parseOutlines } from "../../outline";
 import { Section } from "../Sidebar";
 import CharacterEditor, { OutlineMoment } from "../CharacterEditor";
 
@@ -44,14 +44,23 @@ export default function CharactersView({ project, onNavigate }: Props) {
             .then(([json, sceneList, chapterList]) => {
                 const titles: Record<string, string> = {};
                 for (const d of [...sceneList, ...chapterList]) titles[d.filename] = d.title;
-                const list = parseOutline(json).map((n) => {
-                    const glyph = n.kind === "scene" ? "◇" : n.kind === "chapter" ? "§" : "•";
-                    const label =
-                        n.kind === "point"
-                            ? n.title || "Story point"
-                            : titles[n.file] || n.title || n.file;
-                    return { id: n.id, label: `${glyph} ${label}` };
-                });
+                const outlines = parseOutlines(json);
+                // With parallel outlines, prefix each moment with its outline
+                // name so beats from different plots stay distinguishable.
+                const multiple = outlines.length > 1;
+                const list = outlines.flatMap((o) =>
+                    o.nodes.map((n) => {
+                        const glyph = n.kind === "scene" ? "◇" : n.kind === "chapter" ? "§" : "•";
+                        const label =
+                            n.kind === "point"
+                                ? n.title || "Story point"
+                                : titles[n.file] || n.title || n.file;
+                        return {
+                            id: n.id,
+                            label: multiple ? `${o.name} — ${glyph} ${label}` : `${glyph} ${label}`,
+                        };
+                    })
+                );
                 setMoments(list);
             })
             .catch(() => setMoments([]));

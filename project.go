@@ -91,7 +91,7 @@ const (
 	atlasFile        = "atlas.json"
 	defaultAtlas     = "{\n  \"version\": 1,\n  \"mapImage\": \"\",\n  \"pins\": [],\n  \"regions\": []\n}\n"
 	outlineFile      = "outline.json"
-	defaultOutline   = "{\n  \"version\": 1,\n  \"nodes\": []\n}\n"
+	defaultOutline   = "{\n  \"version\": 1,\n  \"outlines\": []\n}\n"
 	defaultLocation  = "{\n  \"locations\": []\n}\n"
 	defaultLore      = "{\n  \"entries\": []\n}\n"
 	noteboardFile    = "noteboard.json"

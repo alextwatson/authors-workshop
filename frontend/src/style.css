@@ -675,11 +675,28 @@ button.primary:hover {
 
 /* --- Outline board --- */
 
+/* Row container: optional outline list (parallel plots) beside the board. */
+.outline-wrap {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+}
+
 .outline {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
+}
+
+/* Inline rename input shown in an outline's sidebar row on double-click. */
+.outline-rename {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+  font-size: 13px;
 }
 
 .outline-board {

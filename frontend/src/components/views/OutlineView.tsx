@@ -20,12 +20,12 @@ import { newId, nextNumberedFilename } from "../../docnames";
 import { blurOnEnter } from "../../ui";
 import {
     DocKind,
+    Outline,
     OutlineGroup,
     OutlineNode,
     TagColor,
-    parseGroups,
-    parseOutline,
-    serializeOutline,
+    parseOutlines,
+    serializeOutlines,
 } from "../../outline";
 
 interface Props {
@@ -40,6 +40,11 @@ type SaveState = "idle" | "unsaved" | "saved" | "error";
 
 const AUTOSAVE_DELAY_MS = 800;
 const SWATCHES: TagColor[] = ["dark", "green", "orange"];
+
+// Stable fallbacks for the pre-load render: effects depend on `nodes`/`groups`
+// identity, so a fresh [] each render would loop them forever.
+const NO_NODES: OutlineNode[] = [];
+const NO_GROUPS: OutlineGroup[] = [];
 
 function autoGrow(el: HTMLTextAreaElement | null) {
     if (!el) return;
@@ -90,8 +95,9 @@ function normalizeNodes(ns: OutlineNode[]): OutlineNode[] {
 }
 
 export default function OutlineView({ project, focusId }: Props) {
-    const [nodes, setNodes] = useState<OutlineNode[]>([]);
-    const [groups, setGroups] = useState<OutlineGroup[]>([]);
+    const [outlines, setOutlines] = useState<Outline[]>([]);
+    const [activeId, setActiveId] = useState<string | null>(null);
+    const [listOpen, setListOpen] = useState(true);
     const [scenes, setScenes] = useState<main.ChapterInfo[]>([]);
     const [chapters, setChapters] = useState<main.ChapterInfo[]>([]);
     const [trashItems, setTrashItems] = useState<main.TrashItem[]>([]);
@@ -101,9 +107,10 @@ export default function OutlineView({ project, focusId }: Props) {
     const [error, setError] = useState("");
     const [assigningId, setAssigningId] = useState<string | null>(null);
     const [highlightId, setHighlightId] = useState<string | null>(null);
+    const [renamingId, setRenamingId] = useState<string | null>(null);
 
-    const nodesRef = useRef<OutlineNode[]>([]);
-    const groupsRef = useRef<OutlineGroup[]>([]);
+    const outlinesRef = useRef<Outline[]>([]);
+    const activeIdRef = useRef<string | null>(null);
     const assignSnapshot = useRef<OutlineGroup[] | null>(null);
     const dirtyRef = useRef(false);
     const saveTimer = useRef<number | undefined>(undefined);
@@ -114,6 +121,33 @@ export default function OutlineView({ project, focusId }: Props) {
 
     const format = project.meta.manuscriptFormat || "md";
     const ext = format === "txt" ? ".txt" : ".md";
+
+    // The outline currently on the board; falls back to the first, and
+    // parseOutlines guarantees at least one, so `active` is only null pre-load.
+    const active: Outline | null =
+        outlines.find((o) => o.id === activeId) ?? outlines[0] ?? null;
+    const nodes = active?.nodes ?? NO_NODES;
+    const groups = active?.groups ?? NO_GROUPS;
+
+    function currentActive(): Outline | null {
+        const os = outlinesRef.current;
+        return os.find((o) => o.id === activeIdRef.current) ?? os[0] ?? null;
+    }
+
+    function selectOutline(id: string) {
+        activeIdRef.current = id;
+        setActiveId(id);
+        setAssigningId(null);
+        assignSnapshot.current = null;
+        setDragOverKey(null);
+    }
+
+    function applyOutlines(update: (os: Outline[]) => Outline[]) {
+        const next = update(outlinesRef.current);
+        outlinesRef.current = next;
+        setOutlines(next);
+        scheduleSave();
+    }
 
     // Measured vertical spans for each group's curly brace, keyed by group id.
     const spineRef = useRef<HTMLDivElement>(null);
@@ -128,9 +162,7 @@ export default function OutlineView({ project, focusId }: Props) {
             ListTrash(),
         ])
             .then(([json, sceneList, chapterList, trashList]) => {
-                const original = parseOutline(json);
-                const originalGroups = parseGroups(json);
-                let parsed = original;
+                const original = parseOutlines(json);
                 const inList = (kind: DocKind, file: string) =>
                     (kind === "scene" ? sceneList : chapterList).some((d) => d.filename === file);
                 // A doc converted from the Manuscript view keeps its filename
@@ -139,11 +171,6 @@ export default function OutlineView({ project, focusId }: Props) {
                     const other: DocKind = kind === "scene" ? "chapter" : "scene";
                     return !inList(kind, file) && inList(other, file) ? other : kind;
                 };
-                parsed = parsed.map((n) => ({
-                    ...n,
-                    kind: n.kind === "point" ? n.kind : flipKind(n.kind as DocKind, n.file),
-                    arms: n.arms.map((a) => ({ ...a, kind: flipKind(a.kind, a.file) })),
-                }));
                 // Files that are neither on disk nor in the trash are gone for
                 // good (trash emptied or app restarted) — drop their outline
                 // objects so the spine reconnects around them.
@@ -152,38 +179,49 @@ export default function OutlineView({ project, focusId }: Props) {
                     trashList.some(
                         (t) => t.kind === kind && t.filename === file && t.projectPath === project.path
                     );
-                parsed = parsed
-                    .filter((n) => n.kind === "point" || exists(n.kind as DocKind, n.file))
-                    .map((n) => ({ ...n, arms: n.arms.filter((a) => exists(a.kind, a.file)) }));
-                parsed = normalizeNodes(parsed);
-                // Drop group members whose nodes are gone, then drop empty groups.
-                const liveIds = new Set(parsed.map((n) => n.id));
-                const liveGroups = originalGroups
-                    .map((g) => ({ ...g, members: g.members.filter((m) => liveIds.has(m)) }))
-                    .filter((g) => g.members.length > 0);
-                const changed =
-                    serializeOutline(parsed, liveGroups) !==
-                    serializeOutline(original, originalGroups);
-                nodesRef.current = parsed;
-                groupsRef.current = liveGroups;
-                setNodes(parsed);
-                setGroups(liveGroups);
+                const cleaned = original.map((o) => {
+                    let parsed = o.nodes.map((n) => ({
+                        ...n,
+                        kind: n.kind === "point" ? n.kind : flipKind(n.kind as DocKind, n.file),
+                        arms: n.arms.map((a) => ({ ...a, kind: flipKind(a.kind, a.file) })),
+                    }));
+                    parsed = parsed
+                        .filter((n) => n.kind === "point" || exists(n.kind as DocKind, n.file))
+                        .map((n) => ({ ...n, arms: n.arms.filter((a) => exists(a.kind, a.file)) }));
+                    parsed = normalizeNodes(parsed);
+                    // Drop group members whose nodes are gone, then drop empty groups.
+                    const liveIds = new Set(parsed.map((n) => n.id));
+                    const liveGroups = o.groups
+                        .map((g) => ({ ...g, members: g.members.filter((m) => liveIds.has(m)) }))
+                        .filter((g) => g.members.length > 0);
+                    return { ...o, nodes: parsed, groups: liveGroups };
+                });
+                const changed = serializeOutlines(cleaned) !== serializeOutlines(original);
+                outlinesRef.current = cleaned;
+                setOutlines(cleaned);
+                if (!cleaned.some((o) => o.id === activeIdRef.current)) {
+                    // Arriving from a character's emotional arc opens the
+                    // outline holding that node; otherwise the first one.
+                    const owner = focusId
+                        ? cleaned.find((o) => o.nodes.some((n) => n.id === focusId))
+                        : undefined;
+                    const id = (owner ?? cleaned[0]).id;
+                    activeIdRef.current = id;
+                    setActiveId(id);
+                }
                 setScenes(sceneList);
                 setChapters(chapterList);
                 setTrashItems(trashList);
                 setLoaded(true);
                 if (changed) {
-                    WriteOutline(project.path, serializeOutline(parsed, liveGroups)).catch(() => {});
+                    WriteOutline(project.path, serializeOutlines(cleaned)).catch(() => {});
                 }
             })
             .catch((err) => setError(String(err)));
         return () => {
             window.clearTimeout(saveTimer.current);
             if (dirtyRef.current) {
-                WriteOutline(
-                    project.path,
-                    serializeOutline(nodesRef.current, groupsRef.current)
-                ).catch(() => {});
+                WriteOutline(project.path, serializeOutlines(outlinesRef.current)).catch(() => {});
             }
         };
     }, [project.path, format]);
@@ -194,10 +232,7 @@ export default function OutlineView({ project, focusId }: Props) {
         window.clearTimeout(saveTimer.current);
         saveTimer.current = window.setTimeout(async () => {
             try {
-                await WriteOutline(
-                    project.path,
-                    serializeOutline(nodesRef.current, groupsRef.current)
-                );
+                await WriteOutline(project.path, serializeOutlines(outlinesRef.current));
                 dirtyRef.current = false;
                 setSaveState("saved");
             } catch (err) {
@@ -208,44 +243,42 @@ export default function OutlineView({ project, focusId }: Props) {
     }
 
     function mutate(update: (ns: OutlineNode[]) => OutlineNode[]) {
-        const next = normalizeNodes(update(nodesRef.current));
-        nodesRef.current = next;
-        setNodes(next);
+        const act = currentActive();
+        if (!act) return;
+        const next = normalizeNodes(update(act.nodes));
         // A removed node must also leave any group it belonged to.
         const liveIds = new Set(next.map((n) => n.id));
-        const prunedGroups = groupsRef.current
+        const prunedGroups = act.groups
             .map((g) => ({ ...g, members: g.members.filter((m) => liveIds.has(m)) }))
             .filter((g) => g.members.length > 0);
-        if (prunedGroups.length !== groupsRef.current.length) {
-            groupsRef.current = prunedGroups;
-            setGroups(prunedGroups);
-        }
-        scheduleSave();
+        applyOutlines((os) =>
+            os.map((o) => (o.id === act.id ? { ...o, nodes: next, groups: prunedGroups } : o))
+        );
     }
 
     function mutateGroups(update: (gs: OutlineGroup[]) => OutlineGroup[]) {
-        const next = update(groupsRef.current);
-        groupsRef.current = next;
-        setGroups(next);
-        scheduleSave();
+        const act = currentActive();
+        if (!act) return;
+        const next = update(act.groups);
+        applyOutlines((os) => os.map((o) => (o.id === act.id ? { ...o, groups: next } : o)));
     }
 
     function addGroup() {
         const id = newId();
         // Snapshot the pre-add state so Cancel removes the new arc entirely.
-        assignSnapshot.current = groupsRef.current;
+        assignSnapshot.current = currentActive()?.groups ?? [];
         mutateGroups((gs) => [...gs, { id, label: "Plot arc", note: "", color: "green", members: [] }]);
         setAssigningId(id);
     }
 
     function startRegroup(id: string) {
-        assignSnapshot.current = groupsRef.current;
+        assignSnapshot.current = currentActive()?.groups ?? [];
         setAssigningId(id);
     }
 
     function doneGrouping() {
         // An arc with no members has nothing to show — discard it.
-        const g = groupsRef.current.find((x) => x.id === assigningId);
+        const g = currentActive()?.groups.find((x) => x.id === assigningId);
         if (g && g.members.length === 0) {
             mutateGroups((gs) => gs.filter((x) => x.id !== assigningId));
         }
@@ -282,6 +315,32 @@ export default function OutlineView({ project, focusId }: Props) {
         mutateGroups((gs) => gs.filter((g) => g.id !== id));
     }
 
+    // --- outlines (parallel plots) ---
+
+    function addOutline() {
+        const count = outlinesRef.current.length;
+        const id = newId();
+        applyOutlines((os) => [
+            ...os,
+            { id, name: `Outline ${count + 1}`, nodes: [], groups: [] },
+        ]);
+        selectOutline(id);
+    }
+
+    // Removes the outline's story points and references; manuscript files
+    // are untouched (same semantics as deleting a node from the spine).
+    function deleteOutline(id: string) {
+        if (outlinesRef.current.length <= 1) return;
+        applyOutlines((os) => os.filter((o) => o.id !== id));
+        if (activeIdRef.current === id || active?.id === id) {
+            selectOutline(outlinesRef.current[0].id);
+        }
+    }
+
+    function renameOutline(id: string, name: string) {
+        applyOutlines((os) => os.map((o) => (o.id === id ? { ...o, name } : o)));
+    }
+
     // Measure each group's vertical span from its members' card positions.
     // Recomputes when nodes/groups change and whenever a card resizes (e.g.
     // a note auto-grows), so braces stay aligned.
@@ -312,17 +371,23 @@ export default function OutlineView({ project, focusId }: Props) {
         return () => ro.disconnect();
     }, [nodes, groups, editing]);
 
-    // Arriving from a character's emotional arc: scroll the linked card into
-    // view and flash it. Runs once the board has rendered so the element exists.
+    // Arriving from a character's emotional arc: switch to the outline holding
+    // the linked card, then scroll it into view and flash it. Runs once the
+    // board has rendered so the element exists.
     useEffect(() => {
         if (!loaded || !focusId) return;
+        const owner = outlinesRef.current.find((o) => o.nodes.some((n) => n.id === focusId));
+        if (owner && owner.id !== active?.id) {
+            selectOutline(owner.id);
+            return; // re-runs once the right board has rendered
+        }
         const el = nodeEls.current.get(focusId);
         if (!el) return;
         el.scrollIntoView({ behavior: "smooth", block: "center" });
         setHighlightId(focusId);
         const t = window.setTimeout(() => setHighlightId(null), 2000);
         return () => window.clearTimeout(t);
-    }, [loaded, focusId]);
+    }, [loaded, focusId, activeId]);
 
     function patchNode(id: string, patch: Partial<OutlineNode>) {
         mutate((ns) => ns.map((n) => (n.id === id ? { ...n, ...patch } : n)));
@@ -510,7 +575,7 @@ export default function OutlineView({ project, focusId }: Props) {
             });
             return;
         }
-        const source = nodesRef.current.find((n) => n.id === d.nodeId);
+        const source = currentActive()?.nodes.find((n) => n.id === d.nodeId);
         const arm = source?.arms.find((a) => a.id === d.armId);
         if (!arm) return;
         const spineNode: OutlineNode = {
@@ -537,13 +602,14 @@ export default function OutlineView({ project, focusId }: Props) {
     // Story points just reorder in front of the target.
     function dropOnCard(index: number) {
         const d = dragData.current;
-        const target = nodesRef.current[index];
+        const boardNodes = currentActive()?.nodes ?? [];
+        const target = boardNodes[index];
         if (!d || !target) {
             endDrag();
             return;
         }
         if (d.type === "node") {
-            const src = nodesRef.current[d.index];
+            const src = boardNodes[d.index];
             if (!src || src.id === target.id) {
                 endDrag();
                 return;
@@ -571,7 +637,7 @@ export default function OutlineView({ project, focusId }: Props) {
             dropInsert(index);
             return;
         }
-        const source = nodesRef.current.find((n) => n.id === d.nodeId);
+        const source = boardNodes.find((n) => n.id === d.nodeId);
         const arm = source?.arms.find((a) => a.id === d.armId);
         endDrag();
         if (!arm || target.id === d.nodeId || !canAttach(arm.kind, target)) return;
@@ -640,8 +706,70 @@ export default function OutlineView({ project, focusId }: Props) {
         );
     }
 
+    const multipleOutlines = outlines.length > 1;
+
     return (
-        <div className="outline">
+        <div className="outline-wrap">
+            {multipleOutlines && listOpen && (
+                <div className="chapter-list">
+                    <div className="list-top">
+                        <span className="list-heading">Outlines</span>
+                        <button
+                            className="collapse-btn"
+                            title="Hide outlines"
+                            onClick={() => setListOpen(false)}
+                        >
+                            «
+                        </button>
+                    </div>
+                    {outlines.map((o) => (
+                        <div className="doc-row" key={o.id}>
+                            {renamingId === o.id ? (
+                                <input
+                                    className="outline-rename field-input"
+                                    autoFocus
+                                    value={o.name}
+                                    placeholder="Outline name"
+                                    onFocus={(e) => e.target.select()}
+                                    onChange={(e) => renameOutline(o.id, e.target.value)}
+                                    onBlur={() => setRenamingId(null)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter" || e.key === "Escape") {
+                                            setRenamingId(null);
+                                        }
+                                    }}
+                                />
+                            ) : (
+                                <button
+                                    className={`doc-select ${active?.id === o.id ? "active" : ""}`}
+                                    title="Double-click to rename"
+                                    onClick={() => selectOutline(o.id)}
+                                    onDoubleClick={() => setRenamingId(o.id)}
+                                    onContextMenu={(e) => {
+                                        e.preventDefault();
+                                        setRenamingId(o.id);
+                                    }}
+                                >
+                                    <span className="chapter-title">
+                                        {o.name.trim() || "Untitled outline"}
+                                    </span>
+                                </button>
+                            )}
+                            <button
+                                className="doc-trash"
+                                title="Delete outline (manuscript files are kept)"
+                                onClick={() => deleteOutline(o.id)}
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    ))}
+                    <button className="new-chapter" onClick={addOutline}>
+                        + New Outline
+                    </button>
+                </div>
+            )}
+            <div className="outline">
             <div className="outline-board" onDragOver={(e) => e.preventDefault()}>
               <div className="outline-spine" ref={spineRef}>
                 {groups.map((g) => {
@@ -987,10 +1115,20 @@ export default function OutlineView({ project, focusId }: Props) {
                     </>
                 ) : (
                     <>
+                        {multipleOutlines && !listOpen && (
+                            <button title="Show outlines" onClick={() => setListOpen(true)}>
+                                ☰
+                            </button>
+                        )}
                         <button onClick={addPoint}>+ Story Point</button>
                         <button onClick={() => addDocNode("scene")}>+ Scene</button>
                         <button onClick={() => addDocNode("chapter")}>+ Chapter</button>
                         <button onClick={addGroup}>+ Plot Arc</button>
+                        {!multipleOutlines && (
+                            <button title="Add a parallel outline" onClick={addOutline}>
+                                + Outline
+                            </button>
+                        )}
                     </>
                 )}
                 <span className={`save-status ${saveState}`}>
@@ -998,6 +1136,7 @@ export default function OutlineView({ project, focusId }: Props) {
                     {saveState === "saved" && "Saved"}
                     {saveState === "error" && `Could not save: ${error}`}
                 </span>
+            </div>
             </div>
         </div>
     );
