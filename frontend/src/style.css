@@ -1669,28 +1669,15 @@ button.primary:hover {
 
 /* --- World Building codex --- */
 
-/* The body is a stack of single-line auto-growing fields styled to read as one
-   surface; per-line lets a bullet's wrapped overhang keep a hanging indent. */
-.codex-lines {
+/* One auto-growing textarea so selection spans the whole entry; the hanging
+   indent for wrapped bullets is applied in the read view (CodexEditor). */
+.codex-body-input {
+  width: 100%;
   min-height: 240px;
-  display: flex;
-  flex-direction: column;
   padding: 8px 10px;
   background: var(--bg-raised);
   border: 1px solid var(--border);
   border-radius: 6px;
-}
-
-.codex-lines:focus-within {
-  border-color: var(--accent-dim);
-}
-
-.codex-line-input {
-  width: 100%;
-  border: none;
-  background: none;
-  padding: 0;
-  margin: 0;
   resize: none;
   overflow: hidden;
   font-family: var(--font-ui);
@@ -1699,21 +1686,20 @@ button.primary:hover {
   color: var(--text);
 }
 
-.codex-line-input:focus {
-  border: none;
+.codex-body-input:focus {
   outline: none;
-}
-
-/* Hanging indent: the bullet sits in the hang, wrapped text aligns under it. */
-.codex-line-input.is-bullet {
-  padding-left: 1.4em;
-  text-indent: -1.4em;
+  border-color: var(--accent-dim);
 }
 
 .codex-entry-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.codex-format-btns {
+  display: flex;
+  gap: 6px;
 }
 
 .codex-format-btn {

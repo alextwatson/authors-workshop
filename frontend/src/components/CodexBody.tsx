@@ -5,181 +5,214 @@ interface Props {
     onChange: (value: string) => void;
 }
 
-// One logical line of the entry: an indent (leading spaces, 4 per nest level)
-// and its text. Keeping indent separate from text lets each line render in its
-// own single-line textarea where a CSS hanging indent actually works, so a
-// wrapped bullet's overhang lines up under its text instead of the left edge.
-type Row = { indent: number; text: string };
-
 const INDENT = 4;
-const isBullet = (text: string) => /^•\s/.test(text);
+// Bullet marker cycles by nesting level: dot → square → star → dot …
+const MARKERS = ["•", "▪", "★"];
+const markerFor = (level: number) => MARKERS[((level % 3) + 3) % 3];
+// A bullet line: leading indent spaces, a marker, then an optional space + text.
+const bulletLineRe = new RegExp(`^( *)([${MARKERS.join("")}])(?: (.*))?$`);
 
-function parse(value: string): Row[] {
-    const lines = value.length ? value.split("\n") : [""];
-    return lines.map((line) => {
-        const m = line.match(/^( *)(.*)$/)!;
-        return { indent: m[1].length, text: m[2] };
-    });
-}
+// Bounds of the line containing `pos` (start = after the previous newline; end =
+// the next newline or end of string).
+const lineStart = (v: string, pos: number) => v.lastIndexOf("\n", pos - 1) + 1;
+const lineEnd = (v: string, pos: number) => {
+    const nl = v.indexOf("\n", pos);
+    return nl === -1 ? v.length : nl;
+};
 
-function serialize(rows: Row[]): string {
-    return rows.map((r) => " ".repeat(r.indent) + r.text).join("\n");
-}
-
-// A plain-text body editor with bullet support and per-line hanging indents.
+// A plain-text body editor: one textarea so selection spans freely, with bullet
+// list behavior (Enter continues, Tab nests + cycles the marker, Backspace
+// outdents) and markdown-style **bold**. The read view (CodexEditor) renders the
+// bullets' hanging indent and the bold.
 export default function CodexBody({ value, onChange }: Props) {
-    const rows = parse(value);
-    const refs = useRef<(HTMLTextAreaElement | null)[]>([]);
-    const focused = useRef(0);
-    const pending = useRef<{ line: number; caret: number } | null>(null);
+    const ref = useRef<HTMLTextAreaElement | null>(null);
+    // After a structural edit, where to restore the selection once React repaints.
+    const pending = useRef<{ start: number; end: number } | null>(null);
 
     useLayoutEffect(() => {
-        // Auto-grow every line, then restore focus/caret after a structural edit.
-        refs.current.forEach((ta) => {
-            if (!ta) return;
-            ta.style.height = "auto";
-            ta.style.height = `${ta.scrollHeight}px`;
-        });
+        const ta = ref.current;
+        if (!ta) return;
+        ta.style.height = "auto";
+        ta.style.height = `${ta.scrollHeight}px`;
         if (pending.current) {
-            const { line, caret } = pending.current;
+            const { start, end } = pending.current;
             pending.current = null;
-            const ta = refs.current[line];
-            if (ta) {
-                ta.focus();
-                ta.selectionStart = ta.selectionEnd = caret;
-            }
+            ta.focus();
+            ta.selectionStart = start;
+            ta.selectionEnd = end;
         }
     });
 
-    // Commit new rows; optionally place the caret on a given line afterwards.
-    function commit(next: Row[], line?: number, caret?: number) {
-        if (line != null) pending.current = { line, caret: caret ?? 0 };
-        onChange(serialize(next));
+    // Commit new text and place the selection afterwards (collapsed if end omitted).
+    function commit(next: string, start: number, end = start) {
+        pending.current = { start, end };
+        onChange(next);
     }
 
-    function onLineChange(i: number, v: string) {
-        if (v.includes("\n")) {
-            // A multi-line paste splits into rows.
-            const parts = v.split("\n");
-            const inserted: Row[] = parts.map((t, k) => ({
-                indent: k === 0 ? rows[i].indent : 0,
-                text: t,
-            }));
-            const next = [...rows.slice(0, i), ...inserted, ...rows.slice(i + 1)];
-            commit(next, i + parts.length - 1, parts[parts.length - 1].length);
+    // Wrap/unwrap the [start, end) range in ** for bold. Collapsed: insert an
+    // empty pair and drop the caret between them.
+    function bold(start: number, end: number) {
+        if (start === end) {
+            commit(value.slice(0, start) + "****" + value.slice(end), start + 2);
             return;
         }
-        const next = [...rows];
-        next[i] = { ...rows[i], text: v };
-        onChange(serialize(next)); // typing: caret stays put, no restore needed
+        const sel = value.slice(start, end);
+        if (/^\*\*[\s\S]+\*\*$/.test(sel)) {
+            const inner = sel.slice(2, -2);
+            commit(value.slice(0, start) + inner + value.slice(end), start, start + inner.length);
+        } else if (value.slice(start - 2, start) === "**" && value.slice(end, end + 2) === "**") {
+            commit(value.slice(0, start - 2) + sel + value.slice(end + 2), start - 2, end - 2);
+        } else {
+            commit(value.slice(0, start) + "**" + sel + "**" + value.slice(end), start + 2, end + 2);
+        }
     }
 
-    function onLineKeyDown(i: number, e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
         const ta = e.currentTarget;
-        const caret = ta.selectionStart;
-        const row = rows[i];
+        const selStart = ta.selectionStart;
+        const selEnd = ta.selectionEnd;
+
+        if ((e.metaKey || e.ctrlKey) && (e.key === "b" || e.key === "B")) {
+            e.preventDefault();
+            bold(selStart, selEnd);
+            return;
+        }
 
         if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            if (isBullet(row.text) && row.text.trim() === "•") {
-                // Enter on an empty bullet ends the list.
-                const next = [...rows];
-                next[i] = { indent: 0, text: "" };
-                commit(next, i, 0);
+            const ls = lineStart(value, selStart);
+            const line = value.slice(ls, lineEnd(value, selStart));
+            const m = line.match(bulletLineRe);
+            if (m && (m[3] ?? "").trim() === "") {
+                // Enter on an empty bullet ends the list (blank line).
+                e.preventDefault();
+                commit(value.slice(0, ls) + value.slice(lineEnd(value, selStart)), ls);
                 return;
             }
-            const before = row.text.slice(0, caret);
-            const after = row.text.slice(caret);
-            const bullet = isBullet(row.text);
-            const newText = bullet ? "• " + after : after;
-            const next = [
-                ...rows.slice(0, i),
-                { indent: row.indent, text: before },
-                { indent: row.indent, text: newText },
-                ...rows.slice(i + 1),
-            ];
-            commit(next, i + 1, bullet ? 2 : 0);
-            return;
-        }
-
-        if (e.key === "Backspace" && caret === 0 && i > 0) {
             e.preventDefault();
-            const prev = rows[i - 1];
-            const merged: Row = { indent: prev.indent, text: prev.text + row.text };
-            const next = [...rows.slice(0, i - 1), merged, ...rows.slice(i + 1)];
-            commit(next, i - 1, prev.text.length);
+            // Continue the bullet on the next line, or just carry a plain indent.
+            const indent = line.match(/^( *)/)![1];
+            const prefix = m ? indent + markerFor(indent.length / INDENT) + " " : indent;
+            commit(
+                value.slice(0, selStart) + "\n" + prefix + value.slice(selEnd),
+                selStart + 1 + prefix.length,
+            );
             return;
         }
 
         if (e.key === "Tab") {
-            if (!isBullet(row.text)) return; // leave Tab alone outside bullets
+            // Nest every bullet line the selection touches; the marker follows the
+            // new depth (dot → square → star → …). Leave Tab alone with no bullets.
+            const ls = lineStart(value, selStart);
+            const le = lineEnd(value, selEnd);
+            const lines = value.slice(ls, le).split("\n");
+            if (!lines.some((l) => bulletLineRe.test(l))) return;
             e.preventDefault();
-            const next = [...rows];
-            next[i] = {
-                ...row,
-                indent: e.shiftKey ? Math.max(0, row.indent - INDENT) : row.indent + INDENT,
-            };
-            commit(next, i, caret);
+            const rebuilt = lines
+                .map((l) => {
+                    const m = l.match(bulletLineRe);
+                    if (!m) return l;
+                    const cur = m[1].length;
+                    const indent = e.shiftKey ? Math.max(0, cur - INDENT) : cur + INDENT;
+                    return " ".repeat(indent) + markerFor(indent / INDENT) + " " + (m[3] ?? "");
+                })
+                .join("\n");
+            const next = value.slice(0, ls) + rebuilt + value.slice(le);
+            if (selStart === selEnd) {
+                // Keep the caret with the content it was on (shifted by the
+                // single line's indent change), rather than selecting the line.
+                const delta = rebuilt.length - (le - ls);
+                commit(next, Math.max(ls, selStart + delta));
+            } else {
+                commit(next, ls, ls + rebuilt.length);
+            }
             return;
         }
 
-        if (e.key === "ArrowUp" && caret === 0 && i > 0) {
-            refs.current[i - 1]?.focus();
-        }
-        if (e.key === "ArrowDown" && caret === row.text.length && i < rows.length - 1) {
-            refs.current[i + 1]?.focus();
+        if (e.key === "Backspace" && selStart === selEnd) {
+            const ls = lineStart(value, selStart);
+            const le = lineEnd(value, selStart);
+            const line = value.slice(ls, le);
+            const m = line.match(bulletLineRe);
+            if (m) {
+                const indent = m[1].length;
+                // Head of the text: past the indent, marker, and its space.
+                const head = indent + 1 + (line[indent + 1] === " " ? 1 : 0);
+                if (selStart - ls <= head) {
+                    e.preventDefault();
+                    const content = m[3] ?? "";
+                    if (indent >= INDENT) {
+                        // Outdent one level, mirroring Tab (marker follows depth).
+                        const ni = indent - INDENT;
+                        const newLine = " ".repeat(ni) + markerFor(ni / INDENT) + " " + content;
+                        commit(value.slice(0, ls) + newLine + value.slice(le), ls + ni + 2);
+                    } else {
+                        // Level 0: drop the bullet, keep the text as a plain line.
+                        commit(value.slice(0, ls) + content + value.slice(le), ls);
+                    }
+                    return;
+                }
+            }
+            // Otherwise fall through to the textarea's own backspace (which now
+            // merges lines and deletes across a selection natively).
         }
     }
 
+    // Toggle a bullet on the caret's current line.
     function toggleBullet() {
-        const i = Math.min(focused.current, rows.length - 1);
-        const row = rows[i];
-        const next = [...rows];
-        next[i] = isBullet(row.text)
-            ? { ...row, text: row.text.replace(/^•\s/, "") }
-            : { ...row, text: "• " + row.text };
-        commit(next, i, next[i].text.length);
+        const ta = ref.current;
+        if (!ta) return;
+        const ls = lineStart(value, ta.selectionStart);
+        const le = lineEnd(value, ta.selectionStart);
+        const line = value.slice(ls, le);
+        const m = line.match(bulletLineRe);
+        let newLine: string;
+        if (m) {
+            newLine = m[3] ?? ""; // strip marker + indent → plain text
+        } else {
+            const im = line.match(/^( *)(.*)$/)!;
+            newLine = im[1] + markerFor(im[1].length / INDENT) + " " + im[2];
+        }
+        commit(value.slice(0, ls) + newLine + value.slice(le), ls + newLine.length);
     }
 
     return (
         <div className="field">
             <div className="codex-entry-head">
                 <span className="field-label">Entry</span>
-                <button
-                    type="button"
-                    className="codex-format-btn"
-                    title="Toggle a bullet on the current line"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={toggleBullet}
-                >
-                    • Bullet
-                </button>
+                <div className="codex-format-btns">
+                    <button
+                        type="button"
+                        className="codex-format-btn"
+                        title="Bold the selection (⌘B)"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                            const ta = ref.current;
+                            if (ta) bold(ta.selectionStart, ta.selectionEnd);
+                        }}
+                    >
+                        <strong>B</strong>
+                    </button>
+                    <button
+                        type="button"
+                        className="codex-format-btn"
+                        title="Toggle a bullet on the current line"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={toggleBullet}
+                    >
+                        • Bullet
+                    </button>
+                </div>
             </div>
-            <div className="codex-lines">
-                {rows.map((row, i) => {
-                    const bullet = isBullet(row.text);
-                    const level = Math.floor(row.indent / INDENT);
-                    return (
-                        <textarea
-                            key={i}
-                            ref={(el) => (refs.current[i] = el)}
-                            className={`codex-line-input ${bullet ? "is-bullet" : ""}`}
-                            style={bullet ? { marginLeft: `${level * 1.4}em` } : undefined}
-                            value={row.text}
-                            rows={1}
-                            placeholder={
-                                rows.length === 1 && row.text === ""
-                                    ? "Write the lore — history, rules, who rules where, how the magic works…"
-                                    : undefined
-                            }
-                            onFocus={() => (focused.current = i)}
-                            onChange={(e) => onLineChange(i, e.target.value)}
-                            onKeyDown={(e) => onLineKeyDown(i, e)}
-                            spellCheck
-                        />
-                    );
-                })}
-            </div>
+            <textarea
+                ref={ref}
+                className="codex-body-input"
+                value={value}
+                rows={1}
+                placeholder="Write the lore — history, rules, who rules where, how the magic works…"
+                onChange={(e) => onChange(e.target.value)}
+                onKeyDown={onKeyDown}
+                spellCheck
+            />
         </div>
     );
 }

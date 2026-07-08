@@ -90,11 +90,19 @@ export default function CodexEditor({ read, write, onSaved, fallbackTitle, categ
         scheduleSave();
     }
 
+    // Split a line into runs, rendering **bold** spans as <strong>.
+    function renderInline(text: string) {
+        return text.split(/(\*\*[\s\S]+?\*\*)/g).map((part, i) => {
+            const b = part.match(/^\*\*([\s\S]+?)\*\*$/);
+            return b ? <strong key={i}>{b[1]}</strong> : part;
+        });
+    }
+
     // Render the read view of the body: bullet lines get a hanging indent (so
     // wrapped overhang aligns under the text), with nesting from leading spaces.
     function renderBody(body: string) {
         return body.split("\n").map((line, i) => {
-            const m = line.match(/^(\s*)•\s?(.*)$/);
+            const m = line.match(/^(\s*)([•▪★])\s?(.*)$/);
             if (m) {
                 const level = Math.floor(m[1].length / 4);
                 return (
@@ -103,14 +111,15 @@ export default function CodexEditor({ read, write, onSaved, fallbackTitle, categ
                         className="codex-view-bullet"
                         style={{ marginLeft: `${level * 1.4}em` }}
                     >
-                        {`• ${m[2]}`}
+                        {`${m[2]} `}
+                        {renderInline(m[3])}
                     </div>
                 );
             }
             if (line.trim() === "") return <div key={i} className="codex-view-gap" />;
             return (
                 <div key={i} className="codex-view-line">
-                    {line}
+                    {renderInline(line)}
                 </div>
             );
         });
