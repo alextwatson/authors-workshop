@@ -499,6 +499,37 @@ button.primary:hover {
   outline: none;
 }
 
+/* Keep the scrollbar hidden while typing (typewriter auto-scroll would
+   otherwise flash it on every wrapped line); reveal it only while the writer
+   is actively scrolling — see onUserScroll in DocEditor. */
+.editor {
+  scrollbar-width: none; /* Firefox */
+}
+.editor::-webkit-scrollbar {
+  width: 0;
+}
+.editor-wrap.scrolling .editor {
+  scrollbar-width: thin;
+}
+.editor-wrap.scrolling .editor::-webkit-scrollbar {
+  width: 8px;
+}
+.editor-wrap.scrolling .editor::-webkit-scrollbar-thumb {
+  background: var(--text);
+  opacity: 0.2;
+  border-radius: 4px;
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+
+/* Typewriter scrolling: leave room below the text so the last lines can
+   scroll up to the vertical centre instead of sticking to the bottom. Both
+   layers must share the padding or their synced scroll drifts near the end. */
+.editor-wrap.typewriter .editor,
+.editor-wrap.typewriter .editor-backdrop {
+  padding-bottom: 50vh;
+}
+
 .editor-wrap.dimming .seg {
   transition: opacity 250ms ease;
 }

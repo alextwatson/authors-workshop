@@ -94,8 +94,12 @@ export default function DocEditor({ read, write, onSaved, fallbackTitle, focusMo
     const [editingTitle, setEditingTitle] = useState(false);
     const [saveState, setSaveState] = useState<SaveState>("idle");
     const [error, setError] = useState("");
+    // Only reveal the scrollbar while the writer is actively scrolling, so it
+    // never flashes during typewriter auto-scroll as lines wrap.
+    const [scrolling, setScrolling] = useState(false);
 
     const saveTimer = useRef<number | undefined>(undefined);
+    const scrollHideTimer = useRef<number | undefined>(undefined);
     const titleRef = useRef("");
     const bodyRef = useRef("");
     const dirtyRef = useRef(false);
@@ -116,11 +120,20 @@ export default function DocEditor({ read, write, onSaved, fallbackTitle, focusMo
             .catch((err) => setError(String(err)));
         return () => {
             window.clearTimeout(saveTimer.current);
+            window.clearTimeout(scrollHideTimer.current);
             if (dirtyRef.current) {
                 write(serializeDoc(titleRef.current, bodyRef.current, format)).catch(() => {});
             }
         };
     }, []);
+
+    // A real scroll gesture (wheel/trackpad) reveals the scrollbar briefly;
+    // programmatic typewriter scrolling never fires this, so it stays hidden.
+    function onUserScroll() {
+        setScrolling(true);
+        window.clearTimeout(scrollHideTimer.current);
+        scrollHideTimer.current = window.setTimeout(() => setScrolling(false), 900);
+    }
 
     async function saveNow() {
         window.clearTimeout(saveTimer.current);
@@ -205,7 +218,7 @@ export default function DocEditor({ read, write, onSaved, fallbackTitle, focusMo
                 placeholder="Title"
                 spellCheck
             />
-            <div className={`editor-wrap ${eff.dimSentences ? "dimming" : ""}`}>
+            <div className={`editor-wrap ${eff.dimSentences ? "dimming" : ""} ${eff.typewriter ? "typewriter" : ""} ${scrolling ? "scrolling" : ""}`}>
                 <div className="editor-backdrop" ref={backdropRef} aria-hidden>
                     {renderBackdrop(body, caret, eff.dimSentences, eff.typewriter, markerRef)}
                 </div>
@@ -221,6 +234,7 @@ export default function DocEditor({ read, write, onSaved, fallbackTitle, focusMo
                     }}
                     onSelect={(e) => setCaret(e.currentTarget.selectionStart)}
                     onScroll={syncBackdropScroll}
+                    onWheel={onUserScroll}
                     onFocus={() => setEditingTitle(false)}
                     spellCheck
                     placeholder="Start writing…"
